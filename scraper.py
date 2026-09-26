@@ -1,170 +1,249 @@
-import time
+import os
 import re
-import random
+import json
+import hashlib
+import time
+from dotenv import load_dotenv
+from ddgs import DDGS
+from openai import OpenAI
 import requests
-from urllib.parse import urlparse
+from bs4 import BeautifulSoup
 
-try:
-    from ddgs import DDGS
-except ImportError:
-    try:
-        from duckduckgo_search import DDGS
-    except ImportError:
-        DDGS = None
+# Load environment variables from .env file
+load_dotenv()
 
-NOMINATIM_HEADERS = {
-    'User-Agent': 'MikyIntelligencePlatform/2.0 (mousaibo98r@gmail.com)'
+# Configuration
+DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
+
+client = None
+if DEEPSEEK_API_KEY and DEEPSEEK_API_KEY != "your_deepseek_api_key_here":
+    client = OpenAI(
+        api_key=DEEPSEEK_API_KEY,
+        base_url="https://api.deepseek.com"
+    )
+
+SEARCH_KEYWORDS = [
+    "LED Profile", "LED Aluminium Profile", "LED Strip Profile",
+    "Tile Trim Profile", "Tile Edge Profile", "Ceramic Tile Trim",
+    "Furniture Profiles", "Cabinet/Kitchen Profiles",
+    "Glass Profiles", "Shower & Glass Profiles",
+    "Decorative Profiles", "Wall & Ceiling Profiles",
+    "Small/Light Aluminium Extrusion"
+]
+
+EXCLUDED_DOMAINS = [
+    "alibaba.com", "made-in-china.com", "globalsources.com",
+    "indiamart.com", "exportersindia.com", "tradeindia.com",
+    "ec21.com", "europages.com", "europages.co.uk", "kompass.com",
+    "wlw.de", "yellowpages.com", "linkedin.com", "facebook.com",
+    "youtube.com", "pinterest.com", "instagram.com", "twitter.com",
+]
+
+COUNTRY_REGION_MAP = {
+    "argentina": "ar-es", "australia": "au-en", "austria": "at-de",
+    "belgium": "be-nl", "brazil": "br-pt", "bulgaria": "bg-bg",
+    "canada": "ca-en", "chile": "cl-es", "china": "cn-zh",
+    "colombia": "co-es", "croatia": "hr-hr", "czech republic": "cz-cs",
+    "czechia": "cz-cs", "denmark": "dk-da", "estonia": "ee-et",
+    "finland": "fi-fi", "france": "fr-fr", "germany": "de-de",
+    "greece": "gr-el", "hong kong": "hk-tzh", "hungary": "hu-hu",
+    "india": "in-en", "indonesia": "id-id", "ireland": "ie-en",
+    "israel": "il-he", "italy": "it-it", "japan": "jp-jp",
+    "south korea": "kr-kr", "korea": "kr-kr", "latvia": "lv-lv",
+    "lithuania": "lt-lt", "malaysia": "my-ms", "mexico": "mx-es",
+    "netherlands": "nl-nl", "holland": "nl-nl", "new zealand": "nz-en",
+    "norway": "no-no", "peru": "pe-es", "philippines": "ph-en",
+    "poland": "pl-pl", "portugal": "pt-pt", "romania": "ro-ro",
+    "russia": "ru-ru", "singapore": "sg-en", "slovakia": "sk-sk",
+    "slovak republic": "sk-sk", "slovenia": "sl-sl", "south africa": "za-en",
+    "spain": "es-es", "sweden": "se-sv", "switzerland": "ch-de",
+    "taiwan": "tw-tzh", "thailand": "th-th", "turkey": "tr-tr",
+    "türkiye": "tr-tr", "turkiye": "tr-tr", "ukraine": "ua-uk",
+    "united kingdom": "uk-en", "uk": "uk-en", "britain": "uk-en",
+    "great britain": "uk-en", "united states": "us-en", "usa": "us-en",
+    "u.s.": "us-en", "u.s.a.": "us-en", "united states of america": "us-en",
+    "venezuela": "ve-es", "vietnam": "vn-vi",
+    
+    # Arab League & Others
+    "algeria": "xa-en", "egypt": "xa-en", "iraq": "xa-en",
+    "jordan": "xa-en", "kuwait": "xa-en", "lebanon": "xa-en",
+    "morocco": "xa-en", "oman": "xa-en", "palestine": "xa-en",
+    "qatar": "xa-en", "saudi arabia": "xa-en", "ksa": "xa-en",
+    "syria": "xa-en", "tunisia": "xa-en", "united arab emirates": "xa-en",
+    "uae": "xa-en", "dubai": "xa-en", "yemen": "xa-en"
 }
 
-SKIP_DOMAINS = frozenset([
-    'wikipedia.org', 'linkedin.com', 'facebook.com', 'twitter.com', 'x.com',
-    'youtube.com', 'instagram.com', 'pinterest.com', 'reddit.com', 'yelp.com',
-    'yellowpages', 'glassdoor.com', 'indeed.com'
-])
 
-EMAIL_RE = re.compile(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}')
-PHONE_RE = re.compile(r'(?:\+\d{1,3}[\s\-]?)?(?:\(?\d{2,4}\)?[\s\-]?)?\d{3,4}[\s\-]?\d{3,4}')
+def guess_region(location: str) -> str:
+    loc_lower = location.lower()
+    for country in sorted(COUNTRY_REGION_MAP, key=len, reverse=True):
+        if country in loc_lower:
+            return COUNTRY_REGION_MAP[country]
+    return "wt-wt"
 
-def _clean_company_name(title, url):
-    """Extract a clean, readable company/brand name from search result title and URL."""
-    domain_brand = ''
-    if url:
-        try:
-            domain = urlparse(url).netloc.lower().replace('www.', '')
-            parts_d = domain.split('.')
-            if len(parts_d) >= 2:
-                domain_brand = parts_d[0]
-        except Exception:
-            pass
 
-    junk_words = {
-        'wikipedia', 'linkedin', 'facebook', 'glassdoor', 'indeed', 'companies hiring',
-        'largest companies', 'best', 'top', 'list', 'category', 'jobs', 'offerings',
-        'guide', 'solutions', 'directory', 'portal'
+def location_tokens(location: str) -> list:
+    parts = re.split(r"[,/]", location)
+    tokens = [p.strip().lower() for p in parts if p.strip()]
+    return tokens
+
+
+def generate_company_id(name: str) -> str:
+    normalized_name = name.strip().lower()
+    return hashlib.md5(normalized_name.encode('utf-8')).hexdigest()
+
+
+def scrape_website_text(url: str) -> str | None:
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
     }
-    parts = [p.strip() for p in re.split(r'[\-\|\–\—\:]', title) if p.strip()]
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
 
-    # If domain brand appears in one of the parts, that's likely the company name
-    if domain_brand and len(domain_brand) > 2:
-        for p in parts:
-            if domain_brand in p.lower():
-                return p
+        soup = BeautifulSoup(response.content, 'html.parser')
 
-    # Otherwise look for a concise, clean part
-    for p in parts:
-        lower_p = p.lower()
-        if not any(w in lower_p for w in junk_words) and 1 <= len(p.split()) <= 4 and len(p) <= 35:
-            return p
+        for script_or_style in soup(['script', 'style']):
+            script_or_style.decompose()
 
-    if domain_brand and len(domain_brand) > 2 and domain_brand not in ('en', 'de', 'wikipedia', 'medium', 'youtube'):
-        return domain_brand.capitalize()
+        text = soup.get_text(separator=' ')
+        lines = (line.strip() for line in text.splitlines())
+        chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
+        cleaned_text = '\n'.join(chunk for chunk in chunks if chunk)
 
-    return parts[0] if parts else 'Unknown Company'
+        return cleaned_text[:4000]
+    except Exception as e:
+        print(f"    - Failed to scrape {url}: {e}")
+        return None
 
 
-def search_new_companies(location_query):
-    """Search for companies in the specified location using DDGS and geocode them via OpenStreetMap."""
-    if not DDGS:
-        print("Error: DDGS package not available.")
+def fetch_search_results(location: str) -> list:
+    print(f"Starting deep search for aluminium companies in {location}...")
+
+    region = guess_region(location)
+    print(f"Using DDGS region bias: {region}")
+
+    exclude_clause = " ".join(f"-site:{d}" for d in EXCLUDED_DOMAINS)
+
+    unique_urls = set()
+    fallback_snippets = {} 
+
+    start_time = time.time()
+    time_limit = 300  # 5 minutes
+
+    clean_loc = location.replace(',', ' ')
+
+    for keyword in SEARCH_KEYWORDS:
+        if time.time() - start_time >= time_limit:
+            break
+
+        query = f'{keyword} aluminium {clean_loc} {exclude_clause}'
+        print(f"  Searching: '{query}'")
+
+        try:
+            results = DDGS().text(query, region=region, max_results=30)
+            if results:
+                for r in results:
+                    url = r.get('href', '')
+                    snippet = r.get('body', '')
+                    if not url or url in unique_urls:
+                        continue
+                    if any(domain in url for domain in EXCLUDED_DOMAINS):
+                        continue
+                    unique_urls.add(url)
+                    fallback_snippets[url] = {
+                        "title": r.get('title', ''),
+                        "snippet": snippet
+                    }
+        except Exception as e:
+            print(f"    - Error fetching search results: {e}")
+
+        time.sleep(1)
+
+    results_list = []
+    url_list = list(unique_urls)
+    
+    for idx, url in enumerate(url_list):
+        data = fallback_snippets[url]
+        title = data['title']
+        snippet = data['snippet']
+        scraped_text = scrape_website_text(url)
+        content = scraped_text if scraped_text else snippet
+        results_list.append(f"Result {idx+1}:\nTitle: {title}\nURL: {url}\nContent: {content}\n")
+
+    return results_list
+
+
+def parse_with_ai(raw_text_chunk: str, location: str) -> list:
+    if not client:
+        print("ERROR: DeepSeek API client is not initialized.")
+        return []
+        
+    prompt = f"""You are a data extraction expert. Read the following batch of scraped text.
+TARGET LOCATION: {location}
+RULE: Extract companies that operate in or are based in {location}.
+Schema: {{"name": "string", "location": "string", "main_categories": ["string"], "sub_categories": ["string"]}}
+Raw Text Batch:
+{raw_text_chunk}
+"""
+    try:
+        response = client.chat.completions.create(
+            model="deepseek-chat",
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant that strictly outputs valid JSON. Return ONLY the requested JSON format."},
+                {"role": "user", "content": prompt}
+            ],
+            response_format={"type": "json_object"}
+        )
+
+        content = response.choices[0].message.content.strip()
+        if content.startswith("```json"): content = content[7:]
+        if content.endswith("```"): content = content[:-3]
+
+        parsed_data = json.loads(content)
+        if isinstance(parsed_data, dict) and "companies" in parsed_data:
+            return parsed_data["companies"]
+        return []
+    except Exception as e:
+        print(f"Error parsing with AI: {e}")
         return []
 
-    # Try search queries
-    queries = [
-        f"companies in {location_query}",
-        f"top businesses directory {location_query}"
-    ]
-    
-    results = []
-    for query in queries:
-        try:
-            res = list(DDGS(timeout=12).text(query, max_results=12))
-            if res:
-                results.extend(res)
-                break
-        except Exception as e:
-            print(f"DDGS search error for query '{query}': {e}")
+def filter_by_location(companies: list, location: str) -> list:
+    tokens = location_tokens(location)
+    if not tokens:
+        return companies
+    kept = []
+    for comp in companies:
+        comp_location = str(comp.get("location", "")).lower()
+        if all(tok in comp_location for tok in tokens):
+            kept.append(comp)
+    return kept
 
+def run_scraper(location: str) -> list:
+    """Main execution entry point that returns a list of dictionaries."""
+    results = fetch_search_results(location)
     if not results:
         return []
-
-    session = requests.Session()
+        
+    all_companies = []
+    chunk_size = 5
+    for i in range(0, len(results), chunk_size):
+        chunk = results[i:i + chunk_size]
+        text_batch = "\n---\n".join(chunk)
+        extracted = parse_with_ai(text_batch, location)
+        all_companies.extend(extracted)
+        
+    filtered = filter_by_location(all_companies, location)
     
-    # 1. Geocode base location once to provide fallback coordinates
-    base_lat, base_lng = None, None
-    try:
-        geo_url = "https://nominatim.openstreetmap.org/search"
-        base_resp = session.get(
-            geo_url,
-            params={'q': location_query, 'format': 'json', 'limit': 1},
-            headers=NOMINATIM_HEADERS,
-            timeout=6
-        )
-        if base_resp.status_code == 200:
-            data = base_resp.json()
-            if data:
-                base_lat = float(data[0]['lat'])
-                base_lng = float(data[0]['lon'])
-    except Exception as e:
-        print(f"Base location geocode error for {location_query}: {e}")
+    for comp in filtered:
+        comp['company_id'] = generate_company_id(comp['name'] + comp.get('location', ''))
+        
+    return filtered
 
-    companies = []
-    seen_names = set()
 
-    for r in results:
-        title = r.get('title', '')
-        url = r.get('href') or r.get('link') or ''
-        body = r.get('body') or r.get('snippet') or ''
-
-        # Skip unwanted domains
-        domain = urlparse(url).netloc.lower() if url else ''
-        if any(skip in domain for skip in SKIP_DOMAINS):
-            continue
-
-        name = _clean_company_name(title, url)
-        if not name or name.lower() in seen_names:
-            continue
-        seen_names.add(name.lower())
-
-        # Attempt exact geocoding with small delay to respect Nominatim policy
-        lat, lng = None, None
-        try:
-            time.sleep(0.6)
-            geocode_url = "https://nominatim.openstreetmap.org/search"
-            params = {
-                'q': f"{name}, {location_query}",
-                'format': 'json',
-                'limit': 1
-            }
-            geo_resp = session.get(geocode_url, params=params, headers=NOMINATIM_HEADERS, timeout=5)
-            if geo_resp.status_code == 200:
-                geo_data = geo_resp.json()
-                if geo_data:
-                    lat = float(geo_data[0]['lat'])
-                    lng = float(geo_data[0]['lon'])
-        except Exception as e:
-            print(f"Geocode lookup error for {name}: {e}")
-
-        # Fallback to base location coordinates with slight jitter so markers don't overlap
-        if (lat is None or lng is None) and base_lat is not None and base_lng is not None:
-            lat = round(base_lat + random.uniform(-0.02, 0.02), 6)
-            lng = round(base_lng + random.uniform(-0.02, 0.02), 6)
-
-        # Quick snippet extraction for email / phone if present
-        emails = EMAIL_RE.findall(body)
-        email = emails[0] if emails else ''
-        phones = PHONE_RE.findall(body)
-        phone = phones[0] if phones else ''
-
-        companies.append({
-            'name': name,
-            'location_string': location_query,
-            'latitude': lat,
-            'longitude': lng,
-            'website': url,
-            'description': body[:300] if body else '',
-            'email': email,
-            'phone': phone,
-            'ai_status': 'pending'
-        })
-
-    return companies
+# ---------------------------------------------------------------------------
+# Compatibility wrapper: app.py calls search_new_companies(location)
+# ---------------------------------------------------------------------------
+def search_new_companies(location_query: str) -> list:
+    """Wrapper around run_scraper() so app.py can call it without changes."""
+    return run_scraper(location_query)
