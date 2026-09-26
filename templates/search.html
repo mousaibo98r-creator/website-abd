@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Discovery Search — MIKY Intelligence</title>
+    <meta name="description" content="Discover and search for new company leads with map visualization.">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] }
+                }
+            }
+        }
+    </script>
+    <style>
+        .leaflet-popup-content-wrapper { border-radius: 10px !important; box-shadow: 0 4px 15px rgba(0,0,0,0.15) !important; }
+        .leaflet-popup-content { margin: 10px 14px !important; font-family: 'Inter', sans-serif !important; font-size: 0.85rem !important; }
+        .scroll-panel::-webkit-scrollbar { width: 5px; }
+        .scroll-panel::-webkit-scrollbar-track { background: transparent; }
+        .scroll-panel::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        .scroll-panel::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        @keyframes fadeSlideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .card-animate { animation: fadeSlideIn 0.3s ease-out both; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spinner { animation: spin 0.7s linear infinite; }
+    </style>
+</head>
+<body class="bg-slate-50 font-sans text-slate-800 h-screen flex flex-col overflow-hidden antialiased">
+
+    <!-- ===== NAVIGATION ===== -->
+    <nav class="bg-white border-b border-slate-200 px-6 flex items-center h-14 shrink-0 shadow-sm">
+        <div class="flex items-center gap-1.5 mr-8">
+            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center">
+                <span class="text-white text-sm font-bold">M</span>
+            </div>
+            <span class="font-bold text-slate-800 text-sm tracking-tight">MIKY</span>
+        </div>
+        <div class="flex gap-1">
+            <a href="/search" class="px-4 py-2 rounded-lg text-sm font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 transition-colors">
+                🔍 Discovery Search
+            </a>
+            <a href="/matrix" class="px-4 py-2 rounded-lg text-sm font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors">
+                📊 Matrix Hub
+            </a>
+        </div>
+    </nav>
+
+    <!-- ===== PAGE HEADER ===== -->
+    <div class="bg-white border-b border-slate-200 px-6 py-4 shrink-0">
+        <div class="flex items-center justify-between flex-wrap gap-3">
+            <div>
+                <h1 class="text-xl font-bold text-slate-900 flex items-center gap-2">
+                    Discovery Search
+                    <span id="resultBadge" class="text-xs font-bold bg-indigo-100 text-indigo-700 px-2.5 py-0.5 rounded-full">0</span>
+                </h1>
+                <p class="text-sm text-slate-500 mt-0.5">Find and discover new company leads</p>
+            </div>
+            <div class="flex items-center gap-2">
+                <input type="text" id="scrapeLoc" placeholder="e.g. Germany, Kosovo..."
+                    class="px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 transition w-48 placeholder:text-slate-400">
+                <button id="scrapeBtn" class="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white px-5 py-2.5 rounded-lg text-sm font-semibold shadow-sm hover:shadow-md transition-all flex items-center gap-2">
+                    🔍 Find New Leads
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== STATS ROW ===== -->
+    <div class="bg-white border-b border-slate-200 px-6 py-3 shrink-0">
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div class="bg-slate-50 rounded-xl px-4 py-3 border border-slate-100">
+                <div id="statTotal" class="text-2xl font-extrabold text-indigo-600">—</div>
+                <div class="text-xs font-medium text-slate-500 mt-0.5">Total Companies</div>
+            </div>
+            <div class="bg-slate-50 rounded-xl px-4 py-3 border border-slate-100">
+                <div id="statEmail" class="text-2xl font-extrabold text-emerald-600">—</div>
+                <div class="text-xs font-medium text-slate-500 mt-0.5">Emails Found</div>
+            </div>
+            <div class="bg-slate-50 rounded-xl px-4 py-3 border border-slate-100">
+                <div id="statPhone" class="text-2xl font-extrabold text-blue-600">—</div>
+                <div class="text-xs font-medium text-slate-500 mt-0.5">Phones Found</div>
+            </div>
+            <div class="bg-slate-50 rounded-xl px-4 py-3 border border-slate-100">
+                <div id="statWebsite" class="text-2xl font-extrabold text-purple-600">—</div>
+                <div class="text-xs font-medium text-slate-500 mt-0.5">Websites Found</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== LOADING BAR ===== -->
+    <div id="loading" class="bg-white border-b border-slate-200 px-6 py-3 shrink-0 hidden">
+        <div class="flex items-center justify-center gap-3 text-slate-500 text-sm font-medium">
+            <div class="w-4 h-4 border-2 border-indigo-300 border-t-indigo-600 rounded-full spinner"></div>
+            <span>Searching for new leads...</span>
+        </div>
+    </div>
+
+    <!-- ===== FILTER BAR ===== -->
+    <div class="bg-white border-b border-slate-200 px-6 py-3 shrink-0">
+        <div class="flex flex-wrap items-center gap-2.5">
+            <input type="text" id="filterQ" placeholder="Search company name..."
+                class="px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 transition w-52 placeholder:text-slate-400">
+            <input type="text" id="filterCity" placeholder="Filter by city / country..."
+                class="px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 transition w-52 placeholder:text-slate-400">
+            <select id="filterEmail" class="px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 transition text-slate-600 cursor-pointer">
+                <option value="">Email: All</option>
+                <option value="true">📧 Has Email</option>
+                <option value="false">❌ No Email</option>
+            </select>
+            <select id="filterPhone" class="px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 transition text-slate-600 cursor-pointer">
+                <option value="">Phone: All</option>
+                <option value="true">📞 Has Phone</option>
+                <option value="false">❌ No Phone</option>
+            </select>
+            <select id="filterSort" class="px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 transition text-slate-600 cursor-pointer">
+                <option value="newest">Newest First</option>
+                <option value="oldest">Oldest First</option>
+            </select>
+            <div class="ml-auto text-xs text-slate-400 font-medium" id="pageInfo"></div>
+        </div>
+    </div>
+
+    <!-- ===== MAIN CONTENT ===== -->
+    <div class="flex flex-1 overflow-hidden min-h-0">
+        <!-- Card List -->
+        <div class="flex-1 overflow-y-auto scroll-panel p-4 bg-slate-50" id="listPanel">
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3" id="cardGrid">
+                <!-- Cards injected here -->
+            </div>
+            <div id="paginationBar" class="flex items-center justify-center gap-2 mt-6 mb-4 hidden">
+                <button onclick="goPage('prev')" id="prevBtn" class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition">← Prev</button>
+                <span id="pageLabel" class="text-sm font-medium text-slate-500 px-2">Page 1</span>
+                <button onclick="goPage('next')" id="nextBtn" class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition">Next →</button>
+            </div>
+        </div>
+        <!-- Map -->
+        <div class="flex-1 border-l border-slate-200 relative hidden lg:block">
+            <div id="mainMap" class="w-full h-full"></div>
+        </div>
+    </div>
+
+    <!-- ===== MODAL ===== -->
+    <div id="companyModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 hidden" onclick="closeModal(event)">
+        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+        <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto" onclick="event.stopPropagation()">
+            <button onclick="closeModal(event)" class="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-100 hover:bg-red-50 hover:text-red-500 flex items-center justify-center text-slate-400 text-lg transition-colors z-10">&times;</button>
+            <div class="px-6 pt-6 pb-4 border-b border-slate-100">
+                <h2 id="modalName" class="text-lg font-bold text-slate-900 pr-10">Company Name</h2>
+                <p id="modalLocation" class="text-sm text-slate-500 mt-1">📍 Location</p>
+            </div>
+            <div class="px-6 py-4 space-y-4">
+                <div>
+                    <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Email</div>
+                    <div id="modalEmail" class="text-sm text-slate-700"><span class="italic text-slate-400">Not Available</span></div>
+                </div>
+                <div>
+                    <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Phone</div>
+                    <div id="modalPhone" class="text-sm text-slate-700"><span class="italic text-slate-400">Not Available</span></div>
+                </div>
+                <div>
+                    <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Website</div>
+                    <div id="modalWebsite" class="text-sm text-slate-700"><span class="italic text-slate-400">Not Available</span></div>
+                </div>
+                <div>
+                    <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Address</div>
+                    <div id="modalAddress" class="text-sm text-slate-700"><span class="italic text-slate-400">Not Available</span></div>
+                </div>
+                <div>
+                    <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Social Links</div>
+                    <div id="modalSocials" class="text-sm text-slate-700 flex flex-wrap gap-2"><span class="italic text-slate-400">Not Available</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    /* ==============================================
+       Discovery Search — Frontend Logic (Tailwind + Server-Side)
+       ============================================== */
+
+    let map = null;
+    let markersGroup = null;
+    let selectedIds = new Set();
+    let currentData = [];
+    let currentPage = 1;
+    let totalRecords = 0;
+    const PER_PAGE = 100;
+
+    function initMap() {
+        const el = document.getElementById('mainMap');
+        if (!el) return;
+        try {
+            map = L.map('mainMap').setView([39, 35], 3);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap'
+            }).addTo(map);
+            markersGroup = L.layerGroup().addTo(map);
+            console.log('Map initialized');
+        } catch (e) { console.error('Map init error:', e); }
+    }
+
+    function toggleSelection(e, id) {
+        e.stopPropagation();
+        const circle = e.currentTarget;
+        if (selectedIds.has(id)) {
+            selectedIds.delete(id);
+            circle.classList.remove('bg-indigo-500', 'border-indigo-500', 'text-white');
+            circle.classList.add('bg-white', 'border-slate-300');
+            circle.innerHTML = '';
+        } else {
+            selectedIds.add(id);
+            circle.classList.remove('bg-white', 'border-slate-300');
+            circle.classList.add('bg-indigo-500', 'border-indigo-500', 'text-white');
+            circle.innerHTML = '<svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>';
+        }
+    }
+
+    // ---------- Data helpers (handle arrays + strings) ----------
+    function normalize(val) {
+        if (val == null) return [];
+        if (Array.isArray(val)) return val.map(v => String(v ?? '').trim()).filter(Boolean);
+        if (typeof val === 'string') {
+            const s = val.trim();
+            if (s.startsWith('[')) {
+                try {
+                    const parsed = JSON.parse(s);
+                    if (Array.isArray(parsed)) return parsed.map(v => String(v ?? '').trim()).filter(Boolean);
+                } catch (e) { /* not valid JSON, treat as plain string */ }
+            }
+            return s ? [s] : [];
+        }
+        const str = String(val).trim();
+        return str ? [str] : [];
+    }
+    function hasValue(val) { return normalize(val).length > 0; }
+    function firstVal(val) { const a = normalize(val); return a.length ? a[0] : ''; }
+    const NA = '<span class="italic text-slate-400">Not Available</span>';
+    function renderEmails(val) {
+        const arr = normalize(val);
+        if (!arr.length) return NA;
+        return arr.map(e => `<a href="mailto:${esc(e)}" class="text-indigo-600 hover:underline">${esc(e)}</a>`).join('<br>');
+    }
+    function renderPhones(val) {
+        const arr = normalize(val);
+        if (!arr.length) return NA;
+        return arr.map(p => `<a href="tel:${esc(p)}" class="text-indigo-600 hover:underline">${esc(p)}</a>`).join('<br>');
+    }
+    function renderWebsites(val) {
+        const arr = normalize(val);
+        if (!arr.length) return NA;
+        return arr.map(w => `<a href="${w}" target="_blank" class="text-indigo-600 hover:underline">${esc(w)}</a>`).join('<br>');
+    }
+    function renderAddresses(val) {
+        const arr = normalize(val);
+        if (!arr.length) return NA;
+        return arr.map(a => `<span>${esc(a)}</span>`).join('<br>');
+    }
+
+    function openModal(id) {
+        const c = currentData.find(x => (x?._id ?? '') === id);
+        if (!c) return;
+        const el = (i) => document.getElementById(i);
+
+        el('modalName').innerText = firstVal(c?.name) || firstVal(c?.buyer_name) || 'Unknown';
+        el('modalLocation').innerText = '📍 ' + (firstVal(c?.location_string) || firstVal(c?.destination_country) || 'Unknown');
+
+        el('modalEmail').innerHTML = renderEmails(c?.email);
+        el('modalPhone').innerHTML = renderPhones(c?.phone);
+        el('modalWebsite').innerHTML = renderWebsites(c?.website);
+        el('modalAddress').innerHTML = renderAddresses(c?.address);
+
+        const socials = [];
+        if (c?.facebook) socials.push(`<a href="${firstVal(c.facebook)}" target="_blank" class="px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-medium hover:bg-blue-100 transition">Facebook</a>`);
+        if (c?.twitter) socials.push(`<a href="${firstVal(c.twitter)}" target="_blank" class="px-2.5 py-1 bg-sky-50 text-sky-700 rounded-full text-xs font-medium hover:bg-sky-100 transition">Twitter</a>`);
+        if (c?.linkedin) socials.push(`<a href="${firstVal(c.linkedin)}" target="_blank" class="px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs font-medium hover:bg-indigo-100 transition">LinkedIn</a>`);
+        if (c?.instagram) socials.push(`<a href="${firstVal(c.instagram)}" target="_blank" class="px-2.5 py-1 bg-pink-50 text-pink-700 rounded-full text-xs font-medium hover:bg-pink-100 transition">Instagram</a>`);
+        if (c?.youtube) socials.push(`<a href="${firstVal(c.youtube)}" target="_blank" class="px-2.5 py-1 bg-red-50 text-red-700 rounded-full text-xs font-medium hover:bg-red-100 transition">YouTube</a>`);
+        el('modalSocials').innerHTML = socials.length ? socials.join('') : NA;
+
+        document.getElementById('companyModal').classList.remove('hidden');
+    }
+
+    function closeModal(e) {
+        if (e) e.stopPropagation();
+        document.getElementById('companyModal')?.classList.add('hidden');
+    }
+
+    function pillBadge(label, value, colorYes, colorNo) {
+        return hasValue(value)
+            ? `<span class="px-2.5 py-1 rounded-full text-xs font-medium ${colorYes}">${label}</span>`
+            : `<span class="px-2.5 py-1 rounded-full text-xs font-medium ${colorNo}">${label}</span>`;
+    }
+
+    async function loadStats() {
+        try {
+            const res = await fetch('/api/get_search_stats');
+            if (!res.ok) return;
+            const s = await res.json();
+            console.log('Search stats:', s);
+            document.getElementById('statTotal').innerText = s?.total ?? 0;
+            document.getElementById('statEmail').innerText = s?.with_email ?? 0;
+            document.getElementById('statPhone').innerText = s?.with_phone ?? 0;
+            document.getElementById('statWebsite').innerText = s?.with_website ?? 0;
+        } catch (e) { console.error('Stats error:', e); }
+    }
+
+    async function loadData() {
+        const q = document.getElementById('filterQ')?.value ?? '';
+        const city = document.getElementById('filterCity')?.value ?? '';
+        const has_email = document.getElementById('filterEmail')?.value ?? '';
+        const has_phone = document.getElementById('filterPhone')?.value ?? '';
+        const sort = document.getElementById('filterSort')?.value ?? 'newest';
+
+        const params = new URLSearchParams({ q, city, has_email, has_phone, sort, page: currentPage, per_page: PER_PAGE });
+
+        try {
+            console.log('Fetching search data:', params.toString());
+            const res = await fetch('/api/get_search_data?' + params.toString());
+            if (!res.ok) return;
+            
+            const json = await res.json();
+            currentData = json?.data ?? [];
+            totalRecords = json?.total ?? 0;
+            console.log('Data loaded:', currentData.length, '/', totalRecords);
+
+            document.getElementById('resultBadge').innerText = totalRecords;
+
+            const totalPages = Math.ceil(totalRecords / PER_PAGE) || 1;
+            const pagBar = document.getElementById('paginationBar');
+            if (totalPages > 1) {
+                pagBar?.classList.remove('hidden');
+                document.getElementById('pageLabel').innerText = `Page ${currentPage} of ${totalPages}`;
+                document.getElementById('prevBtn').disabled = currentPage <= 1;
+                document.getElementById('nextBtn').disabled = currentPage >= totalPages;
+            } else {
+                pagBar?.classList.add('hidden');
+            }
+            const pageInfo = document.getElementById('pageInfo');
+            if (pageInfo) pageInfo.innerText = `Showing ${currentData.length} of ${totalRecords}`;
+
+            const grid = document.getElementById('cardGrid');
+            if (!grid) return;
+            grid.innerHTML = '';
+            if (markersGroup) markersGroup.clearLayers();
+
+            if (currentData.length === 0) {
+                grid.innerHTML = `
+                    <div class="col-span-full flex flex-col items-center justify-center py-16 text-slate-400">
+                        <div class="text-5xl mb-3">📭</div>
+                        <p class="text-sm font-medium">No companies found. Try different filters or search for new leads.</p>
+                    </div>`;
+                return;
+            }
+
+            let bounds = [];
+
+            currentData.forEach((c, i) => {
+                if (!c) return;
+                const id = c._id ?? '';
+                const name = c.name ?? c.buyer_name ?? 'Unnamed';
+                const loc = c.location_string ?? c.destination_country ?? '';
+                const email = c.email ?? '';
+                const phone = c.phone ?? '';
+                const website = c.website ?? '';
+                const isSelected = selectedIds.has(id);
+
+                const card = document.createElement('div');
+                card.className = 'card-animate bg-white rounded-xl border border-slate-200 p-4 cursor-pointer hover:shadow-md hover:border-indigo-200 transition-all relative group';
+                card.style.animationDelay = `${Math.min(i * 25, 250)}ms`;
+                card.style.borderLeft = '4px solid #6366f1';
+                card.onclick = () => openModal(id);
+
+                const selClasses = isSelected ? 'bg-indigo-500 border-indigo-500 text-white' : 'bg-white border-slate-300';
+                const selCheck = isSelected ? '<svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>' : '';
+
+                card.innerHTML = `
+                    <div onclick="toggleSelection(event, '${id}')" class="absolute top-3 right-3 w-6 h-6 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all hover:scale-110 ${selClasses}">${selCheck}</div>
+                    <h3 class="text-sm font-bold text-slate-800 pr-8 mb-1 leading-snug">${esc(name)}</h3>
+                    <p class="text-xs text-slate-500 mb-3">📍 ${esc(loc) || '<span class="italic text-slate-400">No location</span>'}</p>
+                    <div class="flex flex-wrap gap-1.5 mb-3">
+                        ${pillBadge('📧 Email', email, 'bg-emerald-50 text-emerald-700 border border-emerald-200', 'bg-slate-100 text-slate-400 border border-slate-200')}
+                        ${pillBadge('📞 Phone', phone, 'bg-blue-50 text-blue-700 border border-blue-200', 'bg-slate-100 text-slate-400 border border-slate-200')}
+                        ${pillBadge('🌐 Website', website, 'bg-purple-50 text-purple-700 border border-purple-200', 'bg-slate-100 text-slate-400 border border-slate-200')}
+                    </div>
+                    <div class="flex items-center justify-between pt-2.5 border-t border-slate-100">
+                        <div></div>
+                        <button onclick="migrateToMatrix(event, '${id}')" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-gradient-to-r from-amber-400 to-orange-400 text-white hover:from-amber-500 hover:to-orange-500 shadow-sm hover:shadow transition-all">→ Migrate to Matrix</button>
+                    </div>
+                `;
+                grid.appendChild(card);
+
+                const lat = c.latitude;
+                const lng = c.longitude;
+                if (typeof lat === 'number' && typeof lng === 'number' && isFinite(lat) && isFinite(lng) && markersGroup) {
+                    try {
+                        const marker = L.marker([lat, lng]);
+                        marker.bindPopup(`<b>${esc(name)}</b><br>${esc(loc)}`);
+                        markersGroup.addLayer(marker);
+                        bounds.push([lat, lng]);
+                    } catch (e) { console.warn('Marker error:', e); }
+                }
+            });
+
+            if (bounds.length > 0 && map) {
+                try { map.fitBounds(bounds, { padding: [40, 40], maxZoom: 12 }); }
+                catch (e) { console.warn('fitBounds error:', e); }
+            }
+        } catch (e) { console.error('loadData error:', e); }
+    }
+
+    function goPage(dir) {
+        const totalPages = Math.ceil(totalRecords / PER_PAGE) || 1;
+        if (dir === 'next' && currentPage < totalPages) currentPage++;
+        else if (dir === 'prev' && currentPage > 1) currentPage--;
+        loadData();
+        document.getElementById('listPanel')?.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function esc(s) {
+        if (!s) return '';
+        const d = document.createElement('div');
+        d.appendChild(document.createTextNode(String(s)));
+        return d.innerHTML;
+    }
+
+    window.migrateToMatrix = async function(e, id) {
+        e.stopPropagation();
+        try {
+            const res = await fetch('/api/migrate_to_matrix', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ id })
+            });
+            const result = await res.json();
+            console.log('Migrate:', result);
+            if (res.ok) { selectedIds.delete(id); loadData(); loadStats(); }
+        } catch (e) { console.error('Migration error:', e); }
+    };
+
+    // Debounced text search
+    let debounceTimer = null;
+    function debouncedLoad() {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => { currentPage = 1; loadData(); }, 300);
+    }
+
+    ['filterQ', 'filterCity'].forEach(id => {
+        document.getElementById(id)?.addEventListener('input', debouncedLoad);
+    });
+    ['filterEmail', 'filterPhone', 'filterSort'].forEach(id => {
+        document.getElementById(id)?.addEventListener('change', () => { currentPage = 1; loadData(); });
+    });
+
+    // Scraper
+    document.getElementById('scrapeBtn')?.addEventListener('click', async () => {
+        const loc = document.getElementById('scrapeLoc')?.value?.trim() ?? '';
+        if (!loc) { alert('Enter a location to search'); return; }
+        const btn = document.getElementById('scrapeBtn');
+        const loading = document.getElementById('loading');
+        if (btn) btn.disabled = true;
+        if (loading) loading.classList.remove('hidden');
+        try {
+            const res = await fetch('/api/search_new', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ location: loc })
+            });
+            const data = await res.json();
+            console.log('Search new:', data);
+            if (data?.error) alert(data.error);
+            else { alert(data?.message ?? 'Done'); loadData(); loadStats(); }
+        } catch (e) {
+            console.error('Search new error:', e);
+            alert('Request failed');
+        } finally {
+            if (btn) btn.disabled = false;
+            if (loading) loading.classList.add('hidden');
+        }
+    });
+
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+    console.log('Discovery Search: Initializing...');
+    initMap();
+    loadStats();
+    loadData();
+    </script>
+</body>
+</html>
