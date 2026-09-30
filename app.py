@@ -109,10 +109,12 @@ def index_page():
     return render_template('index.html')
 
 @app.route('/search')
+@app.route('/search.html')
 def search_page():
     return render_template('search.html')
 
 @app.route('/matrix')
+@app.route('/matrix.html')
 def matrix_page():
     return render_template('matrix.html')
 
@@ -355,4 +357,4 @@ def api_enrich():
     return Response(generate(), mimetype='text/event-stream')
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, use_reloader=False, port=5000)

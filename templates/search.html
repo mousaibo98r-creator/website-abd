@@ -62,7 +62,16 @@
                 </h1>
                 <p class="text-sm text-slate-500 mt-0.5">Find and discover new company leads</p>
             </div>
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2 flex-wrap">
+                <select id="scrapeCategory" class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 text-slate-700 cursor-pointer font-medium">
+                    <option value="all">⚡ All Aluminium Profiles</option>
+                    <option value="led">💡 LED Profiles</option>
+                    <option value="tile">🔲 Tile Trim Profiles</option>
+                    <option value="furniture">🪑 Furniture / Kitchen</option>
+                    <option value="glass">🚿 Shower & Glass Profiles</option>
+                    <option value="decorative">🎨 Wall & Ceiling Profiles</option>
+                    <option value="extrusion">⚙️ Light Extrusions</option>
+                </select>
                 <input type="text" id="scrapeLoc" placeholder="e.g. Germany, Kosovo..."
                     class="px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 transition w-48 placeholder:text-slate-400">
                 <button id="scrapeBtn" class="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white px-5 py-2.5 rounded-lg text-sm font-semibold shadow-sm hover:shadow-md transition-all flex items-center gap-2">
@@ -98,7 +107,7 @@
     <div id="loading" class="bg-white border-b border-slate-200 px-6 py-3 shrink-0 hidden">
         <div class="flex items-center justify-center gap-3 text-slate-500 text-sm font-medium">
             <div class="w-4 h-4 border-2 border-indigo-300 border-t-indigo-600 rounded-full spinner"></div>
-            <span>Searching for new leads...</span>
+            <span id="loadingText">Searching web and extracting company leads with AI...</span>
         </div>
     </div>
 
@@ -106,9 +115,20 @@
     <div class="bg-white border-b border-slate-200 px-6 py-3 shrink-0">
         <div class="flex flex-wrap items-center gap-2.5">
             <input type="text" id="filterQ" placeholder="Search company name..."
-                class="px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 transition w-52 placeholder:text-slate-400">
+                class="px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 transition w-44 placeholder:text-slate-400">
             <input type="text" id="filterCity" placeholder="Filter by city / country..."
-                class="px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 transition w-52 placeholder:text-slate-400">
+                class="px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 transition w-44 placeholder:text-slate-400">
+            
+            <select id="filterCategory" class="px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 transition text-slate-600 cursor-pointer">
+                <option value="all">Category: All</option>
+                <option value="LED">💡 LED Profile</option>
+                <option value="Tile">🔲 Tile Trim</option>
+                <option value="Furniture">🪑 Furniture Profile</option>
+                <option value="Glass">🚿 Glass Profile</option>
+                <option value="Decorative">🎨 Decorative Profile</option>
+                <option value="Extrusion">⚙️ Extrusion</option>
+            </select>
+
             <select id="filterEmail" class="px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 transition text-slate-600 cursor-pointer">
                 <option value="">Email: All</option>
                 <option value="true">📧 Has Email</option>
@@ -119,10 +139,20 @@
                 <option value="true">📞 Has Phone</option>
                 <option value="false">❌ No Phone</option>
             </select>
+            <select id="filterWebsite" class="px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 transition text-slate-600 cursor-pointer">
+                <option value="">Website: All</option>
+                <option value="true">🌐 Has Website</option>
+                <option value="false">❌ No Website</option>
+            </select>
             <select id="filterSort" class="px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 transition text-slate-600 cursor-pointer">
                 <option value="newest">Newest First</option>
                 <option value="oldest">Oldest First</option>
             </select>
+            
+            <button id="resetFiltersBtn" title="Reset all filters" class="px-3 py-2 text-xs font-semibold text-slate-500 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">
+                ↺ Reset
+            </button>
+
             <div class="ml-auto text-xs text-slate-400 font-medium" id="pageInfo"></div>
         </div>
     </div>
@@ -147,15 +177,23 @@
     </div>
 
     <!-- ===== MODAL ===== -->
-    <div id="companyModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 hidden" onclick="closeModal(event)">
-        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
-        <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto" onclick="event.stopPropagation()">
-            <button onclick="closeModal(event)" class="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-100 hover:bg-red-50 hover:text-red-500 flex items-center justify-center text-slate-400 text-lg transition-colors z-10">&times;</button>
+    <div id="companyModal" class="fixed inset-0 z-[9999] flex items-center justify-center p-4 hidden" onclick="closeModal(event)">
+        <div class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
+        <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto z-10" onclick="event.stopPropagation()">
+            <button onclick="closeModal(event)" class="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-100 hover:bg-red-50 hover:text-red-500 flex items-center justify-center text-slate-400 text-lg transition-colors z-20">&times;</button>
             <div class="px-6 pt-6 pb-4 border-b border-slate-100">
                 <h2 id="modalName" class="text-lg font-bold text-slate-900 pr-10">Company Name</h2>
                 <p id="modalLocation" class="text-sm text-slate-500 mt-1">📍 Location</p>
             </div>
             <div class="px-6 py-4 space-y-4">
+                <div>
+                    <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Categories / Products</div>
+                    <div id="modalCategories" class="text-sm text-slate-700 flex flex-wrap gap-1.5"><span class="italic text-slate-400">Not Available</span></div>
+                </div>
+                <div>
+                    <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Description</div>
+                    <div id="modalDesc" class="text-sm text-slate-600 leading-relaxed"><span class="italic text-slate-400">Not Available</span></div>
+                </div>
                 <div>
                     <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Email</div>
                     <div id="modalEmail" class="text-sm text-slate-700"><span class="italic text-slate-400">Not Available</span></div>
@@ -187,6 +225,7 @@
 
     let map = null;
     let markersGroup = null;
+    let markersMap = {};
     let selectedIds = new Set();
     let currentData = [];
     let currentPage = 1;
@@ -269,8 +308,29 @@
         const el = (i) => document.getElementById(i);
 
         el('modalName').innerText = firstVal(c?.name) || firstVal(c?.buyer_name) || 'Unknown';
-        el('modalLocation').innerText = '📍 ' + (firstVal(c?.location_string) || firstVal(c?.destination_country) || 'Unknown');
+        el('modalLocation').innerText = '📍 ' + (firstVal(c?.location_string) || firstVal(c?.location) || firstVal(c?.destination_country) || 'Unknown');
 
+        // Focus & pan map to this company's coordinates
+        const lat = c?.latitude;
+        const lng = c?.longitude;
+        if (typeof lat === 'number' && typeof lng === 'number' && isFinite(lat) && isFinite(lng) && map) {
+            try {
+                map.flyTo([lat, lng], 13, { duration: 0.8 });
+                if (markersMap[id]) {
+                    setTimeout(() => markersMap[id].openPopup(), 400);
+                }
+            } catch (err) { console.warn('Map flyTo error:', err); }
+        }
+        setTimeout(() => { if (map) map.invalidateSize(); }, 200);
+
+        const allCats = [...normalize(c?.main_categories), ...normalize(c?.sub_categories)];
+        if (allCats.length) {
+            el('modalCategories').innerHTML = allCats.map(ct => `<span class="px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs font-semibold border border-indigo-100">${esc(ct)}</span>`).join('');
+        } else {
+            el('modalCategories').innerHTML = NA;
+        }
+
+        el('modalDesc').innerText = firstVal(c?.description) || 'No description provided';
         el('modalEmail').innerHTML = renderEmails(c?.email);
         el('modalPhone').innerHTML = renderPhones(c?.phone);
         el('modalWebsite').innerHTML = renderWebsites(c?.website);
@@ -314,11 +374,13 @@
     async function loadData() {
         const q = document.getElementById('filterQ')?.value ?? '';
         const city = document.getElementById('filterCity')?.value ?? '';
+        const category = document.getElementById('filterCategory')?.value ?? '';
         const has_email = document.getElementById('filterEmail')?.value ?? '';
         const has_phone = document.getElementById('filterPhone')?.value ?? '';
+        const has_website = document.getElementById('filterWebsite')?.value ?? '';
         const sort = document.getElementById('filterSort')?.value ?? 'newest';
 
-        const params = new URLSearchParams({ q, city, has_email, has_phone, sort, page: currentPage, per_page: PER_PAGE });
+        const params = new URLSearchParams({ q, city, category, has_email, has_phone, has_website, sort, page: currentPage, per_page: PER_PAGE });
 
         try {
             console.log('Fetching search data:', params.toString());
@@ -349,6 +411,7 @@
             if (!grid) return;
             grid.innerHTML = '';
             if (markersGroup) markersGroup.clearLayers();
+            markersMap = {};
 
             if (currentData.length === 0) {
                 grid.innerHTML = `
@@ -365,11 +428,14 @@
                 if (!c) return;
                 const id = c._id ?? '';
                 const name = c.name ?? c.buyer_name ?? 'Unnamed';
-                const loc = c.location_string ?? c.destination_country ?? '';
+                const loc = c.location_string ?? c.location ?? c.destination_country ?? '';
                 const email = c.email ?? '';
                 const phone = c.phone ?? '';
                 const website = c.website ?? '';
                 const isSelected = selectedIds.has(id);
+
+                const cats = [...normalize(c.main_categories), ...normalize(c.sub_categories)].slice(0, 2);
+                const catPills = cats.map(ct => `<span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100">${esc(ct)}</span>`).join('');
 
                 const card = document.createElement('div');
                 card.className = 'card-animate bg-white rounded-xl border border-slate-200 p-4 cursor-pointer hover:shadow-md hover:border-indigo-200 transition-all relative group';
@@ -383,7 +449,8 @@
                 card.innerHTML = `
                     <div onclick="toggleSelection(event, '${id}')" class="absolute top-3 right-3 w-6 h-6 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all hover:scale-110 ${selClasses}">${selCheck}</div>
                     <h3 class="text-sm font-bold text-slate-800 pr-8 mb-1 leading-snug">${esc(name)}</h3>
-                    <p class="text-xs text-slate-500 mb-3">📍 ${esc(loc) || '<span class="italic text-slate-400">No location</span>'}</p>
+                    <p class="text-xs text-slate-500 mb-2">📍 ${esc(loc) || '<span class="italic text-slate-400">No location</span>'}</p>
+                    ${catPills ? `<div class="flex flex-wrap gap-1 mb-2.5">${catPills}</div>` : ''}
                     <div class="flex flex-wrap gap-1.5 mb-3">
                         ${pillBadge('📧 Email', email, 'bg-emerald-50 text-emerald-700 border border-emerald-200', 'bg-slate-100 text-slate-400 border border-slate-200')}
                         ${pillBadge('📞 Phone', phone, 'bg-blue-50 text-blue-700 border border-blue-200', 'bg-slate-100 text-slate-400 border border-slate-200')}
@@ -403,6 +470,7 @@
                         const marker = L.marker([lat, lng]);
                         marker.bindPopup(`<b>${esc(name)}</b><br>${esc(loc)}`);
                         markersGroup.addLayer(marker);
+                        markersMap[id] = marker;
                         bounds.push([lat, lng]);
                     } catch (e) { console.warn('Marker error:', e); }
                 }
@@ -454,14 +522,27 @@
     ['filterQ', 'filterCity'].forEach(id => {
         document.getElementById(id)?.addEventListener('input', debouncedLoad);
     });
-    ['filterEmail', 'filterPhone', 'filterSort'].forEach(id => {
+    ['filterCategory', 'filterEmail', 'filterPhone', 'filterWebsite', 'filterSort'].forEach(id => {
         document.getElementById(id)?.addEventListener('change', () => { currentPage = 1; loadData(); });
+    });
+
+    document.getElementById('resetFiltersBtn')?.addEventListener('click', () => {
+        if (document.getElementById('filterQ')) document.getElementById('filterQ').value = '';
+        if (document.getElementById('filterCity')) document.getElementById('filterCity').value = '';
+        if (document.getElementById('filterCategory')) document.getElementById('filterCategory').value = 'all';
+        if (document.getElementById('filterEmail')) document.getElementById('filterEmail').value = '';
+        if (document.getElementById('filterPhone')) document.getElementById('filterPhone').value = '';
+        if (document.getElementById('filterWebsite')) document.getElementById('filterWebsite').value = '';
+        if (document.getElementById('filterSort')) document.getElementById('filterSort').value = 'newest';
+        currentPage = 1;
+        loadData();
     });
 
     // Scraper
     document.getElementById('scrapeBtn')?.addEventListener('click', async () => {
         const loc = document.getElementById('scrapeLoc')?.value?.trim() ?? '';
-        if (!loc) { alert('Enter a location to search'); return; }
+        const cat = document.getElementById('scrapeCategory')?.value ?? 'all';
+        if (!loc) { alert('Enter a location to search (e.g. Germany, Kosovo, Turkey)'); return; }
         const btn = document.getElementById('scrapeBtn');
         const loading = document.getElementById('loading');
         if (btn) btn.disabled = true;
@@ -470,7 +551,7 @@
             const res = await fetch('/api/search_new', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ location: loc })
+                body: JSON.stringify({ location: loc, category: cat })
             });
             const data = await res.json();
             console.log('Search new:', data);

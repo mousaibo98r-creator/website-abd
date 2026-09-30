@@ -6,6 +6,10 @@ from urllib.parse import urlparse
 import httpx
 from openai import AsyncOpenAI
 from bs4 import BeautifulSoup
+from dotenv import load_dotenv
+
+# Ensure environment variables are loaded
+load_dotenv()
 
 try:
     from ddgs import DDGS
@@ -23,7 +27,7 @@ except Exception:
     _random_ua = lambda: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
 
 DEFAULT_MODEL = "deepseek-flash"
-MAX_TURNS     = 10
+MAX_TURNS     = 4
 
 SKIP_DOMAINS = frozenset([
     'dnb.com', 'yellowpages', 'yelp.com', 'linkedin.com', 'facebook.com',
