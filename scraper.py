@@ -1144,8 +1144,202 @@ def search_new_companies(location_query: str) -> list:
     return run_scraper(location_query)
 
 
+# ============================================================================
+# FASTAPI APPLICATION & ASYNCHRONOUS JOB ENGINE
+# ============================================================================
+import uuid
+import traceback
+from threading import Thread
+
+try:
+    from fastapi import FastAPI, HTTPException
+    from fastapi.middleware.cors import CORSMiddleware
+    from pydantic import BaseModel, Field
+    HAS_FASTAPI = True
+except ImportError:
+    HAS_FASTAPI = False
+
+# In-memory background jobs registry with auto-pruning
+JOBS: dict = {}
+
+
+def _prune_old_jobs():
+    """Remove completed or errored jobs older than 2 hours to prevent memory bloat."""
+    now = time.time()
+    stale_ids = [
+        jid for jid, j in list(JOBS.items())
+        if j.get("finished_at") and (now - j["finished_at"] > 7200)
+    ]
+    for jid in stale_ids:
+        JOBS.pop(jid, None)
+
+
+def _run_job(job_id: str, location: str, save_to_mongo: bool = False):
+    job = JOBS.get(job_id)
+    if not job:
+        return
+    job["status"] = "running"
+    job["stage"] = "searching_web"
+    job["started_at"] = time.time()
+    job["progress"] = 25
+    try:
+        job["stage"] = "scraping_and_ai_extracting"
+        results = search_new_companies(location)
+        job["progress"] = 85
+
+        # Optional direct MongoDB insertion if requested
+        if save_to_mongo and results:
+            try:
+                from pymongo import MongoClient
+                m_uri = os.getenv("MONGO_URI")
+                if m_uri:
+                    m_client = MongoClient(m_uri)
+                    col = m_client.miky_db.search_collection
+                    to_save = [dict(c) for c in results]
+                    for item in to_save:
+                        item.pop("company_id", None)
+                    col.insert_many(to_save)
+                    job["saved_to_mongo"] = len(to_save)
+            except Exception as m_err:
+                job["mongo_error"] = str(m_err)
+
+        job["results"] = results
+        job["count"] = len(results)
+        job["status"] = "done"
+        job["stage"] = "complete"
+        job["progress"] = 100
+        job["finished_at"] = time.time()
+        job["elapsed_seconds"] = round(job["finished_at"] - job["started_at"], 2)
+    except Exception as e:
+        job["status"] = "error"
+        job["stage"] = "failed"
+        job["error"] = str(e)
+        job["trace"] = traceback.format_exc()
+        job["finished_at"] = time.time()
+        job["elapsed_seconds"] = round(job["finished_at"] - job["started_at"], 2)
+
+
+if HAS_FASTAPI:
+    app = FastAPI(
+        title="Aluminium Lead Finder & Scraper API",
+        description="High-accuracy B2B lead discovery engine with DeepSeek AI extraction and address geocoding",
+        version="2.0.0"
+    )
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    class SearchRequest(BaseModel):
+        location: str = Field(..., description="Target search region, city, or country (e.g. 'Ankara, Turkey', 'Germany')")
+        save_to_mongo: bool = Field(False, description="Optionally auto-insert found companies into MongoDB Atlas search_collection")
+
+    @app.get("/", tags=["Health"])
+    def root_health():
+        _prune_old_jobs()
+        active = sum(1 for j in JOBS.values() if j.get("status") == "running")
+        done = sum(1 for j in JOBS.values() if j.get("status") == "done")
+        return {
+            "ok": True,
+            "service": "Lead Discovery & Scraper API",
+            "version": "2.0.0",
+            "has_deepseek_key": bool(DEEPSEEK_API_KEY and DEEPSEEK_API_KEY != "your_deepseek_api_key_here"),
+            "has_mongo_uri": bool(os.getenv("MONGO_URI")),
+            "active_jobs": active,
+            "completed_jobs": done,
+            "total_jobs_tracked": len(JOBS)
+        }
+
+    @app.post("/search", tags=["Search"])
+    def start_search(req: SearchRequest):
+        loc = (req.location or "").strip()
+        if not loc:
+            raise HTTPException(status_code=400, detail="Field 'location' is required.")
+
+        _prune_old_jobs()
+        job_id = str(uuid.uuid4())
+        JOBS[job_id] = {
+            "job_id": job_id,
+            "status": "queued",
+            "stage": "queued",
+            "progress": 0,
+            "location": loc,
+            "created_at": time.time(),
+            "started_at": None,
+            "finished_at": None,
+            "elapsed_seconds": None,
+            "results": [],
+            "count": 0
+        }
+        Thread(target=_run_job, args=(job_id, loc, req.save_to_mongo), daemon=True).start()
+        return {
+            "job_id": job_id,
+            "status": "queued",
+            "message": f"Search background job started for '{loc}'. Poll /job/{job_id} for progress.",
+            "check_status_url": f"/job/{job_id}"
+        }
+
+    @app.get("/job/{job_id}", tags=["Jobs"])
+    def job_status(job_id: str):
+        job = JOBS.get(job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail="Job ID not found or expired.")
+        return job
+
+    @app.get("/jobs", tags=["Jobs"])
+    def list_jobs(limit: int = 20):
+        _prune_old_jobs()
+        sorted_jobs = sorted(JOBS.values(), key=lambda x: x.get("created_at", 0), reverse=True)[:limit]
+        return [
+            {
+                "job_id": j.get("job_id"),
+                "status": j.get("status"),
+                "stage": j.get("stage"),
+                "location": j.get("location"),
+                "progress": j.get("progress"),
+                "count": j.get("count"),
+                "elapsed_seconds": j.get("elapsed_seconds")
+            }
+            for j in sorted_jobs
+        ]
+
+    @app.post("/search/sync", tags=["Search"])
+    def search_synchronous(req: SearchRequest):
+        loc = (req.location or "").strip()
+        if not loc:
+            raise HTTPException(status_code=400, detail="Field 'location' is required.")
+        try:
+            results = search_new_companies(loc)
+            return {
+                "ok": True,
+                "location": loc,
+                "count": len(results),
+                "companies": results
+            }
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
+
+else:
+    app = None
+
+
 if __name__ == "__main__":
     import sys
-    loc = sys.argv[1] if len(sys.argv) > 1 else "Germany"
-    data = search_new_companies(loc)
-    print(json.dumps(data[:3], indent=2, ensure_ascii=False))
+    if len(sys.argv) > 1 and not sys.argv[1].startswith("-"):
+        loc = sys.argv[1]
+        print(f"Running CLI scraper for '{loc}'...")
+        data = search_new_companies(loc)
+        print(json.dumps(data[:3], indent=2, ensure_ascii=False))
+    elif HAS_FASTAPI:
+        import uvicorn
+        port = int(os.getenv("PORT", 8000))
+        print(f"Starting FastAPI server on http://0.0.0.0:{port}...")
+        uvicorn.run("scraper:app", host="0.0.0.0", port=port, reload=False)
+    else:
+        print("FastAPI not installed. Running default CLI scraper for 'Germany'...")
+        data = search_new_companies("Germany")
+        print(json.dumps(data[:3], indent=2, ensure_ascii=False))

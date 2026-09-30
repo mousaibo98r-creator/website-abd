@@ -9,3 +9,6 @@ httpx
 beautifulsoup4
 pymongo
 dnspython
+fastapi
+pydantic
+uvicorn
