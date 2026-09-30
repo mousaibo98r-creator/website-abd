@@ -485,6 +485,11 @@
             currentData.forEach((c, i) => {
                 if (!c) return;
                 const id = c._id ?? '';
+                const name = c.name ?? c.buyer_name ?? 'Unnamed Company';
+                const email = c.email ?? '';
+                const phone = c.phone ?? '';
+                const website = c.website ?? '';
+                const isSelected = selectedIds.has(id);
                 const address = c.address ? String(c.address).trim() : '';
                 const loc = c.location_string ?? c.location ?? c.destination_country ?? '';
                 const displayAddr = address || loc || 'Address not available';
