@@ -48,13 +48,13 @@ QUERY_TEMPLATES = [
     "{kw} company {loc}",
 ]
 
-RESULTS_PER_QUERY = 10
-MAX_URLS = 25
-MAX_WORKERS = 12
-HTTP_TIMEOUT = 6
-MAX_TEXT_CHARS = 4500
-SEARCH_BUDGET_SECONDS = 20
-AI_BATCH_SIZE = 4
+RESULTS_PER_QUERY = 8
+MAX_URLS = 10
+MAX_WORKERS = 10
+HTTP_TIMEOUT = 3.5
+MAX_TEXT_CHARS = 3500
+SEARCH_BUDGET_SECONDS = 8
+AI_BATCH_SIZE = 5
 
 STRICT_LOCATION_FILTER = False
 
@@ -571,7 +571,7 @@ def collect_site(url: str, snippet: str = "") -> dict:
             key=lambda u: 0 if re.search(r"(impressum|imprint|legal|kontakt|contact|adresse|location)", u, re.I) else 1
         )
 
-        for link in contact_links[:3]:
+        for link in contact_links[:1]:
             p2 = _fetch(link, session)
             if not p2:
                 continue
@@ -1001,11 +1001,15 @@ def run_scraper(location: str) -> list:
     if not results:
         return []
 
+    batches = [results[i:i + AI_BATCH_SIZE] for i in range(0, len(results), AI_BATCH_SIZE)]
     all_companies = []
-    for i in range(0, len(results), AI_BATCH_SIZE):
-        batch = results[i:i + AI_BATCH_SIZE]
-        extracted = parse_with_ai(batch, location)
-        all_companies.extend(extracted)
+    with ThreadPoolExecutor(max_workers=min(4, len(batches) or 1)) as pool:
+        futures = [pool.submit(parse_with_ai, b, location) for b in batches]
+        for fut in as_completed(futures):
+            try:
+                all_companies.extend(fut.result())
+            except Exception as e:
+                print(f"Batch AI error: {e}")
 
     filtered = filter_by_location(all_companies, location)
     final = dedupe_companies(filtered)

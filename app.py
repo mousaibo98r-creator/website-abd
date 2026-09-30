@@ -283,24 +283,31 @@ def migrate_to_matrix():
 
 @app.route('/api/search_new', methods=['POST'])
 def api_search_new():
-    data = request.json
-    location = data.get('location', '')
-    if not location:
-        return jsonify({"error": "Location is required"}), 400
-        
-    companies = search_new_companies(location)
-    inserted = 0
-    if companies:
-        for c in companies:
-            if 'company_id' in c:
-                del c['company_id']
-        try:
-            search_collection.insert_many(companies)
-            inserted = len(companies)
-        except Exception as e:
-            print("Mongo Error:", e)
+    try:
+        data = request.get_json(silent=True) or {}
+        location = data.get('location', '').strip()
+        if not location:
+            return jsonify({"error": "Location is required"}), 400
             
-    return jsonify({"message": f"Found and saved {inserted} new companies", "count": inserted})
+        companies = search_new_companies(location)
+        inserted = 0
+        if companies:
+            clean_companies = []
+            for c in companies:
+                c_copy = dict(c)
+                if 'company_id' in c_copy:
+                    del c_copy['company_id']
+                clean_companies.append(c_copy)
+            try:
+                search_collection.insert_many(clean_companies)
+                inserted = len(clean_companies)
+            except Exception as e:
+                print("Mongo Error in api_search_new:", e)
+                
+        return jsonify({"message": f"Found and saved {inserted} new companies", "count": inserted})
+    except Exception as e:
+        print("api_search_new error:", e)
+        return jsonify({"error": f"Search failed: {str(e)}"}), 500
 
 @app.route('/api/enrich_one', methods=['POST'])
 def api_enrich_one():
