@@ -5,3 +5,5 @@ ddgs
 openai
 requests
 beautifulsoup4
+bson
+pymongo
