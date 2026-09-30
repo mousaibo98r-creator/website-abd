@@ -207,6 +207,52 @@ def expected_tld(location: str) -> str | None:
     return None
 
 
+FALLBACK_GEO_CACHE = {
+    "ankara": (39.9334, 32.8597),
+    "sincan": (39.9583, 32.5786),
+    "ostim": (39.9725, 32.7483),
+    "ivedik": (39.9817, 32.7667),
+    "istanbul": (41.0082, 28.9784),
+    "izmir": (38.4237, 27.1428),
+    "bursa": (40.1885, 29.0610),
+    "kocaeli": (40.8533, 29.8815),
+    "gebze": (40.8028, 29.4307),
+    "antalya": (36.8969, 30.7133),
+    "konya": (37.8746, 32.4932),
+    "adana": (37.0000, 35.3213),
+    "gaziantep": (37.0662, 37.3833),
+    "turkey": (38.9637, 35.2433),
+    "türkiye": (38.9637, 35.2433),
+    "germany": (51.1657, 10.4515),
+    "deutschland": (51.1657, 10.4515),
+    "berlin": (52.5200, 13.4050),
+    "munich": (48.1351, 11.5820),
+    "hamburg": (53.5511, 9.9937),
+    "frankfurt": (50.1109, 8.6821),
+    "stuttgart": (48.7758, 9.1829),
+    "france": (46.2276, 2.2137),
+    "paris": (48.8566, 2.3522),
+    "italy": (41.8719, 12.5674),
+    "milan": (45.4642, 9.1900),
+    "spain": (40.4637, -3.7492),
+    "madrid": (40.4168, -3.7038),
+    "london": (51.5074, -0.1278),
+    "uk": (55.3781, -3.4360),
+    "kosovo": (42.6026, 20.9030),
+    "pristina": (42.6629, 21.1655)
+}
+
+
+def get_fallback_coords(text: str) -> tuple:
+    if not text:
+        return (39.9334, 32.8597)
+    low = text.lower()
+    for name, coords in FALLBACK_GEO_CACHE.items():
+        if name in low:
+            return coords
+    return (39.9334, 32.8597)
+
+
 def location_tokens(location: str) -> list:
     parts = re.split(r"[,/|]", location or "")
     return [p.strip().lower() for p in parts if p.strip()]
@@ -1035,6 +1081,13 @@ def run_scraper(location: str) -> list:
             phones.insert(0, comp["phone"])
         comp["phones"] = phones
         comp["phone"] = phones[0] if phones else None
+
+        # Geocode if coordinates are missing
+        if comp.get("latitude") is None or comp.get("longitude") is None:
+            coords = get_fallback_coords(comp.get("address") or loc_str)
+            jitter = (int(hashlib.md5(comp["name"].encode()).hexdigest()[:6], 16) % 30 - 15) * 0.003
+            comp["latitude"] = round(coords[0] + jitter, 6)
+            comp["longitude"] = round(coords[1] + jitter, 6)
 
         # Status for UI
         comp["ai_status"] = "scraped" if (comp.get("email") or comp.get("phone")) else "pending"

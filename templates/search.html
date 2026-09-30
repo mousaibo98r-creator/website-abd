@@ -245,6 +245,64 @@
         } catch (e) { console.error('Map init error:', e); }
     }
 
+    const KNOWN_COORDS = {
+        'sincan': [39.9583, 32.5786],
+        'ostim': [39.9725, 32.7483],
+        'ivedik': [39.9817, 32.7667],
+        'ankara': [39.9334, 32.8597],
+        'istanbul': [41.0082, 28.9784],
+        'izmir': [38.4237, 27.1428],
+        'bursa': [40.1885, 29.0610],
+        'antalya': [36.8969, 30.7133],
+        'konya': [37.8746, 32.4932],
+        'kocaeli': [40.8533, 29.8815],
+        'gebze': [40.8028, 29.4307],
+        'adana': [37.0000, 35.3213],
+        'gaziantep': [37.0662, 37.3833],
+        'turkey': [38.9637, 35.2433],
+        'türkiye': [38.9637, 35.2433],
+        'germany': [51.1657, 10.4515],
+        'berlin': [52.5200, 13.4050],
+        'munich': [48.1351, 11.5820],
+        'frankfurt': [50.1109, 8.6821],
+        'hamburg': [53.5511, 9.9937],
+        'france': [46.2276, 2.2137],
+        'paris': [48.8566, 2.3522],
+        'italy': [41.8719, 12.5674],
+        'milan': [45.4642, 9.1900],
+        'spain': [40.4637, -3.7492],
+        'madrid': [40.4168, -3.7038],
+        'london': [51.5074, -0.1278],
+        'uk': [55.3781, -3.4360],
+        'kosovo': [42.6026, 20.9030],
+        'pristina': [42.6629, 21.1655]
+    };
+
+    function resolveFallbackCoords(str) {
+        if (!str) return null;
+        const low = String(str).toLowerCase();
+        for (const [k, v] of Object.entries(KNOWN_COORDS)) {
+            if (low.includes(k)) return v;
+        }
+        return [39.9334, 32.8597];
+    }
+
+    function hashSeed(str) {
+        let h = 0;
+        const s = String(str || '');
+        for (let i = 0; i < s.length; i++) h = (h << 5) - h + s.charCodeAt(i) | 0;
+        return Math.abs(h);
+    }
+
+    function focusMapAndOpen(id) {
+        if (markersMap[id] && map) {
+            const m = markersMap[id];
+            map.flyTo(m.getLatLng(), 13, { duration: 0.6 });
+            m.openPopup();
+        }
+        openModal(id);
+    }
+
     function toggleSelection(e, id) {
         e.stopPropagation();
         const circle = e.currentTarget;
@@ -427,12 +485,9 @@
             currentData.forEach((c, i) => {
                 if (!c) return;
                 const id = c._id ?? '';
-                const name = c.name ?? c.buyer_name ?? 'Unnamed';
+                const address = c.address ? String(c.address).trim() : '';
                 const loc = c.location_string ?? c.location ?? c.destination_country ?? '';
-                const email = c.email ?? '';
-                const phone = c.phone ?? '';
-                const website = c.website ?? '';
-                const isSelected = selectedIds.has(id);
+                const displayAddr = address || loc || 'Address not available';
 
                 const cats = [...normalize(c.main_categories), ...normalize(c.sub_categories)].slice(0, 2);
                 const catPills = cats.map(ct => `<span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100">${esc(ct)}</span>`).join('');
@@ -441,15 +496,22 @@
                 card.className = 'card-animate bg-white rounded-xl border border-slate-200 p-4 cursor-pointer hover:shadow-md hover:border-indigo-200 transition-all relative group';
                 card.style.animationDelay = `${Math.min(i * 25, 250)}ms`;
                 card.style.borderLeft = '4px solid #6366f1';
-                card.onclick = () => openModal(id);
+                card.onclick = () => focusMapAndOpen(id);
 
                 const selClasses = isSelected ? 'bg-indigo-500 border-indigo-500 text-white' : 'bg-white border-slate-300';
                 const selCheck = isSelected ? '<svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>' : '';
 
                 card.innerHTML = `
                     <div onclick="toggleSelection(event, '${id}')" class="absolute top-3 right-3 w-6 h-6 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all hover:scale-110 ${selClasses}">${selCheck}</div>
-                    <h3 class="text-sm font-bold text-slate-800 pr-8 mb-1 leading-snug">${esc(name)}</h3>
-                    <p class="text-xs text-slate-500 mb-2">📍 ${esc(loc) || '<span class="italic text-slate-400">No location</span>'}</p>
+                    <h3 class="text-sm font-bold text-slate-800 pr-8 mb-1.5 leading-snug">${esc(name)}</h3>
+                    
+                    <div class="flex items-start gap-1.5 text-xs text-slate-600 mb-2.5 bg-slate-50 p-2 rounded-lg border border-slate-100">
+                        <span class="text-indigo-500 font-bold shrink-0 mt-0.5">📍</span>
+                        <span class="line-clamp-2 leading-relaxed font-medium" title="${esc(displayAddr)}">
+                            ${esc(displayAddr)}
+                        </span>
+                    </div>
+
                     ${catPills ? `<div class="flex flex-wrap gap-1 mb-2.5">${catPills}</div>` : ''}
                     <div class="flex flex-wrap gap-1.5 mb-3">
                         ${pillBadge('📧 Email', email, 'bg-emerald-50 text-emerald-700 border border-emerald-200', 'bg-slate-100 text-slate-400 border border-slate-200')}
@@ -457,18 +519,39 @@
                         ${pillBadge('🌐 Website', website, 'bg-purple-50 text-purple-700 border border-purple-200', 'bg-slate-100 text-slate-400 border border-slate-200')}
                     </div>
                     <div class="flex items-center justify-between pt-2.5 border-t border-slate-100">
-                        <div></div>
+                        <span class="text-[11px] text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1">
+                            🗺️ View on Map
+                        </span>
                         <button onclick="migrateToMatrix(event, '${id}')" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-gradient-to-r from-amber-400 to-orange-400 text-white hover:from-amber-500 hover:to-orange-500 shadow-sm hover:shadow transition-all">→ Migrate to Matrix</button>
                     </div>
                 `;
                 grid.appendChild(card);
 
-                const lat = c.latitude;
-                const lng = c.longitude;
-                if (typeof lat === 'number' && typeof lng === 'number' && isFinite(lat) && isFinite(lng) && markersGroup) {
+                let lat = typeof c.latitude === 'number' ? c.latitude : null;
+                let lng = typeof c.longitude === 'number' ? c.longitude : null;
+
+                // Client fallback geocoding if lat/lng is missing in document
+                if (lat === null || lng === null || !isFinite(lat) || !isFinite(lng)) {
+                    const fallback = resolveFallbackCoords(displayAddr);
+                    if (fallback) {
+                        const jitter = (hashSeed(id || name) % 30 - 15) * 0.003;
+                        lat = fallback[0] + jitter;
+                        lng = fallback[1] + jitter;
+                    }
+                }
+
+                if (lat !== null && lng !== null && isFinite(lat) && isFinite(lng) && markersGroup) {
                     try {
                         const marker = L.marker([lat, lng]);
-                        marker.bindPopup(`<b>${esc(name)}</b><br>${esc(loc)}`);
+                        marker.bindPopup(`
+                            <div style="min-width: 220px; font-family: inherit;">
+                                <div style="font-weight: 700; font-size: 13px; color: #0f172a; margin-bottom: 4px;">${esc(name)}</div>
+                                <div style="font-size: 11px; color: #475569; margin-bottom: 6px; line-height: 1.4;">📍 ${esc(displayAddr)}</div>
+                                ${email ? `<div style="font-size: 11px; color: #059669; margin-bottom: 2px;">📧 ${esc(email)}</div>` : ''}
+                                ${phone ? `<div style="font-size: 11px; color: #2563eb; margin-bottom: 6px;">📞 ${esc(phone)}</div>` : ''}
+                                <button onclick="openModal('${id}')" style="display:block; width:100%; text-align:center; background:#4f46e5; color:white; border:none; border-radius:6px; padding:5px 0; font-size:11px; font-weight:600; cursor:pointer; margin-top:6px;">View Full Details</button>
+                            </div>
+                        `);
                         markersGroup.addLayer(marker);
                         markersMap[id] = marker;
                         bounds.push([lat, lng]);
@@ -477,7 +560,7 @@
             });
 
             if (bounds.length > 0 && map) {
-                try { map.fitBounds(bounds, { padding: [40, 40], maxZoom: 12 }); }
+                try { map.fitBounds(bounds, { padding: [50, 50], maxZoom: 13 }); }
                 catch (e) { console.warn('fitBounds error:', e); }
             }
         } catch (e) { console.error('loadData error:', e); }
