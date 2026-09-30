@@ -477,17 +477,53 @@ def extract_addresses_from_text(text: str) -> list:
 
 
 def extract_geo_coordinates(soup) -> tuple:
-    """Extract latitude and longitude from meta tags or scripts if available."""
-    # 1. Meta tags geo.position / ICBM
+    """Extract latitude and longitude from Google Maps embeds, links, or meta tags."""
+    # 1. Google Maps iframe embeds (!2d<lng>!3d<lat> or @lat,lng)
+    for iframe in soup.find_all("iframe", src=True):
+        src = iframe["src"]
+        if "google.com/maps" in src or "maps.google" in src:
+            match = re.search(r'!2d([\d\.\-]+)!3d([\d\.\-]+)', src)
+            if match:
+                try:
+                    lng, lat = float(match.group(1)), float(match.group(2))
+                    if -90 <= lat <= 90 and -180 <= lng <= 180:
+                        return lat, lng
+                except Exception:
+                    pass
+            match2 = re.search(r'[@=]([\d\.\-]+),([\d\.\-]+)', src)
+            if match2:
+                try:
+                    lat, lng = float(match2.group(1)), float(match2.group(2))
+                    if -90 <= lat <= 90 and -180 <= lng <= 180:
+                        return lat, lng
+                except Exception:
+                    pass
+
+    # 2. Map links in anchor tags
+    for a in soup.find_all("a", href=True):
+        href = a["href"]
+        if "google.com/maps" in href or "maps.google" in href or "openstreetmap.org" in href:
+            match = re.search(r'[@=]([\d\.\-]+),([\d\.\-]+)', href)
+            if match:
+                try:
+                    lat, lng = float(match.group(1)), float(match.group(2))
+                    if -90 <= lat <= 90 and -180 <= lng <= 180:
+                        return lat, lng
+                except Exception:
+                    pass
+
+    # 3. Meta tags geo.position / ICBM
     for meta in soup.find_all("meta"):
         name = (meta.get("name") or "").lower()
         if name in ("geo.position", "icbm"):
             val = meta.get("content", "")
-            if val and ";" in val or "," in val:
+            if val and (";" in val or "," in val):
                 parts = re.split(r"[,;]\s*", val)
                 if len(parts) >= 2:
                     try:
-                        return float(parts[0]), float(parts[1])
+                        lat, lng = float(parts[0]), float(parts[1])
+                        if -90 <= lat <= 90 and -180 <= lng <= 180:
+                            return lat, lng
                     except Exception:
                         pass
     return None, None
