@@ -48,13 +48,13 @@ QUERY_TEMPLATES = [
     "{kw} company {loc}",
 ]
 
-RESULTS_PER_QUERY = 15
-MAX_URLS = 180
-MAX_WORKERS = 10
-HTTP_TIMEOUT = 10
-MAX_TEXT_CHARS = 7000
-SEARCH_BUDGET_SECONDS = 180
-AI_BATCH_SIZE = 3
+RESULTS_PER_QUERY = 10
+MAX_URLS = 25
+MAX_WORKERS = 12
+HTTP_TIMEOUT = 6
+MAX_TEXT_CHARS = 4500
+SEARCH_BUDGET_SECONDS = 20
+AI_BATCH_SIZE = 4
 
 STRICT_LOCATION_FILTER = False
 
@@ -652,13 +652,12 @@ def _ddgs_search(query: str, region: str, max_results: int, retries: int = 2) ->
 
 def build_queries(location: str) -> list:
     clean_loc = location.replace(",", " ").strip()
-    queries = []
-    # Pick a high-yield subset of keywords to avoid search rate limiting
-    core_kws = SEARCH_KEYWORDS[:8]
-    for kw in core_kws:
-        for tpl in QUERY_TEMPLATES[:3]:
-            queries.append(tpl.format(kw=kw, loc=clean_loc))
-    return queries
+    return [
+        f"Aluminium profile manufacturer {clean_loc}",
+        f"LED profile supplier {clean_loc}",
+        f"Tile trim profile factory {clean_loc}",
+        f"Aluminium extrusion company {clean_loc}",
+    ]
 
 
 def fetch_search_results(location: str) -> list:

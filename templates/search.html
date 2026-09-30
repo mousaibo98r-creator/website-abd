@@ -553,13 +553,23 @@
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ location: loc, category: cat })
             });
-            const data = await res.json();
+            let data = null;
+            try {
+                data = await res.json();
+            } catch (jsonErr) {
+                throw new Error(res.status ? `Server returned status ${res.status}. Check Vercel/Render logs or environment variables.` : 'Network connection failed.');
+            }
             console.log('Search new:', data);
-            if (data?.error) alert(data.error);
-            else { alert(data?.message ?? 'Done'); loadData(); loadStats(); }
+            if (!res.ok || data?.error) {
+                alert(data?.error || `Search error (HTTP ${res.status})`);
+            } else {
+                alert(data?.message ?? 'Search completed!');
+                loadData();
+                loadStats();
+            }
         } catch (e) {
             console.error('Search new error:', e);
-            alert('Request failed');
+            alert(e?.message || 'Request failed. Check backend deployment and logs.');
         } finally {
             if (btn) btn.disabled = false;
             if (loading) loading.classList.add('hidden');
