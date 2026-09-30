@@ -302,16 +302,94 @@ def api_search_new():
             
     return jsonify({"message": f"Found and saved {inserted} new companies", "count": inserted})
 
+@app.route('/api/enrich_one', methods=['POST'])
+def api_enrich_one():
+    data = request.json or {}
+    doc_id = data.get('id')
+    if not doc_id:
+        return jsonify({"error": "id is required"}), 400
+
+    try:
+        obj_id = ObjectId(doc_id)
+    except Exception:
+        return jsonify({"error": "Invalid document ID format"}), 400
+
+    # Search in matrix_collection first, fallback to search_collection
+    target_col = matrix_collection
+    doc = matrix_collection.find_one({"_id": obj_id})
+    if not doc:
+        doc = search_collection.find_one({"_id": obj_id})
+        target_col = search_collection
+
+    if not doc:
+        return jsonify({"error": "Company record not found"}), 404
+
+    company_name = doc.get("name") or doc.get("buyer_name") or ""
+    location = doc.get("location_string") or doc.get("destination_country") or ""
+
+    if not company_name:
+        return jsonify({"error": "Company name is empty"}), 400
+
+    client_ai = DeepSeekClient()
+    system_prompt = "You are a data researcher finding contact details for companies."
+
+    try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        data_found, turns = loop.run_until_complete(
+            client_ai.extract_company_data(system_prompt, company_name, location)
+        )
+    except Exception as e:
+        return jsonify({"error": f"AI extraction error: {str(e)}"}), 500
+    finally:
+        try:
+            loop.run_until_complete(client_ai.close())
+            loop.close()
+        except Exception:
+            pass
+
+    update_fields = {"ai_status": "completed"}
+    if data_found:
+        try:
+            parsed = json.loads(data_found) if isinstance(data_found, str) else data_found
+            if parsed.get("email"):
+                update_fields["email"] = parsed["email"]
+            if parsed.get("phone"):
+                update_fields["phone"] = parsed["phone"]
+            if parsed.get("website"):
+                update_fields["website"] = parsed["website"]
+            if parsed.get("address"):
+                update_fields["address"] = parsed["address"]
+            if parsed.get("company_name_english"):
+                update_fields["company_name_english"] = parsed["company_name_english"]
+            if parsed.get("country_english"):
+                update_fields["country_english"] = parsed["country_english"]
+        except Exception as e:
+            print("Error parsing AI response:", e)
+
+    target_col.update_one({"_id": obj_id}, {"$set": update_fields})
+    updated_doc = target_col.find_one({"_id": obj_id})
+
+    return jsonify({
+        "message": f"Successfully enriched {company_name}",
+        "company": serialize_doc(updated_doc)
+    })
+
 @app.route('/api/enrich')
 def api_enrich():
+    limit = request.args.get('limit', type=int)
     def generate():
-        pending_docs = list(matrix_collection.find({"ai_status": "pending"}))
+        cursor = matrix_collection.find({"ai_status": "pending"})
+        if limit and limit > 0:
+            cursor = cursor.limit(limit)
+        pending_docs = list(cursor)
+        
         yield f"data: {json.dumps({'message': f'Starting enrichment for {len(pending_docs)} companies'})}\n\n"
         
         client_ai = DeepSeekClient()
         
         for comp in pending_docs:
-            c_name = comp.get("name", "")
+            c_name = comp.get("name", "") or comp.get("buyer_name", "")
             yield f"data: {json.dumps({'message': f'Enriching {c_name}...'})}\n\n"
             
             loop = asyncio.new_event_loop()
@@ -319,34 +397,38 @@ def api_enrich():
             try:
                 system_prompt = "You are a data researcher finding contact details for companies."
                 data_found, turns = loop.run_until_complete(
-                    client_ai.extract_company_data(system_prompt, comp.get('name', ''), comp.get('location_string', ''))
+                    client_ai.extract_company_data(system_prompt, c_name, comp.get('location_string', ''))
                 )
                 
                 email = None
                 phone = None
+                website = None
+                address = None
                 if data_found:
                     try:
                         parsed = json.loads(data_found) if isinstance(data_found, str) else data_found
                         emails = parsed.get("emails_found", [])
                         phones = parsed.get("phones_found", [])
-                        email = emails[0] if emails else None
-                        phone = phones[0] if phones else None
-                    except:
+                        email = parsed.get("email") or (emails[0] if emails else None)
+                        phone = parsed.get("phone") or (phones[0] if phones else None)
+                        website = parsed.get("website")
+                        address = parsed.get("address")
+                    except Exception:
                         pass
                 
+                upd = {"ai_status": "completed"}
+                if email: upd["email"] = email
+                if phone: upd["phone"] = phone
+                if website: upd["website"] = website
+                if address: upd["address"] = address
+
                 matrix_collection.update_one(
                     {"_id": comp["_id"]},
-                    {"$set": {
-                        "email": email,
-                        "phone": phone,
-                        "ai_status": "completed"
-                    }}
+                    {"$set": upd}
                 )
                 
-                c_name = comp.get("name", "")
                 yield f"data: {json.dumps({'message': f'Finished {c_name}: Email={email}, Phone={phone}'})}\n\n"
             except Exception as e:
-                c_name = comp.get("name", "")
                 yield f"data: {json.dumps({'message': f'Error for {c_name}: {str(e)}'})}\n\n"
             finally:
                 loop.run_until_complete(client_ai.close())
@@ -358,3 +440,4 @@ def api_enrich():
 
 if __name__ == '__main__':
     app.run(debug=True, use_reloader=False, port=5000)
+
