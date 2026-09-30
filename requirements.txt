@@ -1,9 +1,11 @@
 flask
+gunicorn
 mysql-connector-python
 python-dotenv
 ddgs
 openai
 requests
+httpx
 beautifulsoup4
-bson
 pymongo
+dnspython
