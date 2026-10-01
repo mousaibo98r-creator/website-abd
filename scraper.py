@@ -1560,47 +1560,36 @@ def run_scraper(location: str, category: str = "all") -> list:
         print(f"No companies found for '{location}'.")
         return []
 
-    # 3. For candidate companies with websites, scrape in parallel to harvest live addresses and contact info
-    def _enrich_site(comp):
-        w = comp.get("website")
-        if not w:
+    # 3. Fast contact check (only for candidates missing both email and phone)
+    need_enrich = [c for c in combined if not c.get("email") and not c.get("phone") and c.get("website")]
+    if need_enrich:
+        def _quick_enrich(comp):
+            w = comp.get("website")
+            if not w:
+                return comp
+            try:
+                target_url = w if "://" in w else f"https://{w}"
+                r = requests.get(target_url, headers=HEADERS, timeout=1.8)
+                if r.status_code < 400:
+                    found_emails = _emails_from(r.text[:50000])
+                    if found_emails and not comp.get("email"):
+                        comp["email"] = found_emails[0]
+                        comp.setdefault("emails", []).extend(found_emails)
+                    found_phones = _phones_from(r.text[:50000])
+                    if found_phones and not comp.get("phone"):
+                        comp["phone"] = found_phones[0]
+                        comp.setdefault("phones", []).extend(found_phones)
+            except Exception:
+                pass
             return comp
-        try:
-            site_info = collect_site(w, comp.get("description", ""))
-            site_addr = format_address(site_info.get("best_address"))
-            if site_addr and len(site_addr) >= 10:
-                # Keep rich AI address unless scraped site address is also rich and complete
-                if not comp.get("address") or len(site_addr) >= len(comp.get("address", "")):
-                    comp["address"] = site_addr
-                    comp["address_source"] = site_info.get("address_source")
-                    comp["address_confidence"] = site_info.get("address_confidence")
-            if site_info.get("emails"):
-                existing = comp.get("emails") or []
-                all_e = list(dict.fromkeys(existing + site_info["emails"]))
-                comp["emails"] = all_e
-                if not comp.get("email"):
-                    comp["email"] = all_e[0]
-            if site_info.get("phones"):
-                existing = comp.get("phones") or []
-                all_p = list(dict.fromkeys(existing + site_info["phones"]))
-                comp["phones"] = all_p
-                if not comp.get("phone"):
-                    comp["phone"] = all_p[0]
-            if site_info.get("latitude") and site_info.get("longitude"):
-                comp["latitude"] = site_info["latitude"]
-                comp["longitude"] = site_info["longitude"]
-        except Exception:
-            pass
-        return comp
 
-    print(f"Deep scraping and verifying {len(combined)} company websites...")
-    with ThreadPoolExecutor(max_workers=min(10, len(combined) or 1)) as pool:
-        enriched_list = list(pool.map(_enrich_site, combined))
+        with ThreadPoolExecutor(max_workers=min(5, len(need_enrich))) as pool:
+            list(pool.map(_quick_enrich, need_enrich))
 
     # 4. Location filtering with tolerant diacritics folding
-    filtered = filter_by_location(enriched_list, location)
-    if len(filtered) < 2 and len(enriched_list) >= 2:
-        filtered = enriched_list
+    filtered = filter_by_location(combined, location)
+    if len(filtered) < 2 and len(combined) >= 2:
+        filtered = combined
 
     # 5. Deduplicate
     final = dedupe_companies(filtered)
