@@ -246,68 +246,94 @@
     }
 
     const KNOWN_COORDS = {
-        'sincan': [39.9583, 32.5786],
-        'ostim': [39.9725, 32.7483],
-        'ivedik': [39.9817, 32.7667],
-        'ankara': [39.9334, 32.8597],
-        'istanbul': [41.0082, 28.9784],
-        'esenyurt': [41.0342, 28.6801],
-        'basaksehir': [41.0967, 28.8028],
-        'tuzla': [40.8167, 29.3000],
-        'umraniye': [41.0256, 29.1172],
-        'tekirdag': [40.9781, 27.5117],
-        'tekirdağ': [40.9781, 27.5117],
-        'corlu': [41.1594, 27.7986],
-        'çorlu': [41.1594, 27.7986],
-        'cerkezkoy': [41.2917, 28.0017],
-        'çerkezköy': [41.2917, 28.0017],
-        'ergene': [41.2581, 27.6719],
-        'kapakli': [41.3236, 27.9783],
-        'kapaklı': [41.3236, 27.9783],
-        'velikoy': [41.2427, 27.9300],
-        'veliköy': [41.2427, 27.9300],
-        'izmir': [38.4237, 27.1428],
-        'bursa': [40.1885, 29.0610],
-        'antalya': [36.8969, 30.7133],
-        'konya': [37.8746, 32.4932],
-        'kocaeli': [40.8533, 29.8815],
-        'gebze': [40.8028, 29.4307],
-        'sakarya': [40.7569, 30.3783],
-        'adapazari': [40.7731, 30.4033],
-        'kayseri': [38.7205, 35.4826],
-        'manisa': [38.6191, 27.4289],
-        'denizli': [37.7765, 29.0864],
-        'eskisehir': [39.7767, 30.5206],
-        'adana': [37.0000, 35.3213],
-        'gaziantep': [37.0662, 37.3833],
-        'turkey': [38.9637, 35.2433],
-        'türkiye': [38.9637, 35.2433],
-        'germany': [51.1657, 10.4515],
-        'berlin': [52.5200, 13.4050],
-        'munich': [48.1351, 11.5820],
-        'münchen': [48.1351, 11.5820],
-        'frankfurt': [50.1109, 8.6821],
-        'hamburg': [53.5511, 9.9937],
-        'france': [46.2276, 2.2137],
-        'paris': [48.8566, 2.3522],
-        'italy': [41.8719, 12.5674],
-        'milan': [45.4642, 9.1900],
-        'spain': [40.4637, -3.7492],
-        'madrid': [40.4168, -3.7038],
-        'barcelona': [41.3879, 2.1699],
-        'london': [51.5074, -0.1278],
-        'uk': [55.3781, -3.4360],
-        'kosovo': [42.6026, 20.9030],
-        'pristina': [42.6629, 21.1655]
+        // Poland (Hubs & Centroid)
+        'poland': [51.9194, 19.1451], 'polska': [51.9194, 19.1451],
+        'kety': [49.8868, 19.2274], 'kęty': [49.8868, 19.2274],
+        'bielsko-biala': [49.8225, 19.0444], 'bielsko-biała': [49.8225, 19.0444],
+        'warsaw': [52.2297, 21.0122], 'warszawa': [52.2297, 21.0122],
+        'krakow': [50.0647, 19.9450], 'kraków': [50.0647, 19.9450],
+        'wroclaw': [51.1079, 17.0385], 'wrocław': [51.1079, 17.0385],
+        'poznan': [52.4064, 16.9252], 'poznań': [52.4064, 16.9252],
+        'katowice': [50.2649, 19.0238], 'gliwice': [50.2945, 18.6714],
+        'tychy': [50.1261, 18.9867], 'czestochowa': [50.8118, 19.1203], 'częstochowa': [50.8118, 19.1203],
+        'konin': [52.2234, 18.2512], 'opole': [50.6751, 17.9213],
+        'rzeszow': [50.0412, 21.9991], 'rzeszów': [50.0412, 21.9991],
+        'gdansk': [54.3520, 18.6466], 'gdańsk': [54.3520, 18.6466],
+        'lodz': [51.7592, 19.4560], 'łódź': [51.7592, 19.4560],
+
+        // Germany (Hubs & Centroid)
+        'germany': [51.1657, 10.4515], 'deutschland': [51.1657, 10.4515],
+        'velbert': [51.3400, 7.0420], 'wuppertal': [51.2562, 7.1508], 'solingen': [51.1712, 7.0838],
+        'hagen': [51.3671, 7.4633], 'iserlohn': [51.3768, 7.6978], 'ludenscheid': [51.2198, 7.6272],
+        'berlin': [52.5200, 13.4050], 'munich': [48.1351, 11.5820], 'münchen': [48.1351, 11.5820],
+        'frankfurt': [50.1109, 8.6821], 'hamburg': [53.5511, 9.9937], 'stuttgart': [48.7758, 9.1829],
+        'dusseldorf': [51.2277, 6.7735], 'düsseldorf': [51.2277, 6.7735],
+        'cologne': [50.9375, 6.9603], 'köln': [50.9375, 6.9603],
+        'dortmund': [51.5136, 7.4653], 'essen': [51.4556, 7.0116],
+
+        // United States & North America
+        'united states': [37.0902, -95.7129], 'usa': [37.0902, -95.7129], 'u.s.': [37.0902, -95.7129],
+        'canada': [56.1304, -106.3468], 'mexico': [23.6345, -102.5528],
+        'chicago': [41.8781, -87.6298], 'elk grove village': [42.0039, -87.9703], 'elk grove': [42.0039, -87.9703],
+        'new york': [40.7128, -74.0060], 'los angeles': [34.0522, -118.2437], 'houston': [29.7604, -95.3698],
+        'dallas': [32.7767, -96.7970], 'cleveland': [41.4993, -81.6944], 'detroit': [42.3314, -83.0458],
+
+        // United Kingdom & Western Europe
+        'united kingdom': [55.3781, -3.4360], 'uk': [55.3781, -3.4360], 'britain': [55.3781, -3.4360], 'england': [52.3555, -1.1743],
+        'london': [51.5074, -0.1278], 'birmingham': [52.4862, -1.8904], 'manchester': [53.4808, -2.2426], 'telford': [52.6784, -2.4452],
+        'france': [46.2276, 2.2137], 'paris': [48.8566, 2.3522], 'lyon': [45.7640, 4.8357],
+        'italy': [41.8719, 12.5674], 'italia': [41.8719, 12.5674],
+        'milan': [45.4642, 9.1900], 'milano': [45.4642, 9.1900], 'brescia': [45.5416, 10.2118], 'rome': [41.9028, 12.4964],
+        'spain': [40.4637, -3.7492], 'españa': [40.4637, -3.7492], 'espana': [40.4637, -3.7492],
+        'madrid': [40.4168, -3.7038], 'barcelona': [41.3879, 2.1699], 'valencia': [39.4699, -0.3763], 'alicante': [38.3452, -0.4810],
+        'netherlands': [52.1326, 5.2913], 'holland': [52.1326, 5.2913],
+        'belgium': [50.5039, 4.4699], 'switzerland': [46.8182, 8.2275], 'schweiz': [46.8182, 8.2275],
+        'austria': [47.5162, 14.5501], 'portugal': [39.3999, -8.2245], 'greece': [39.0742, 21.8243],
+        'sweden': [60.1282, 18.6435], 'norway': [60.4720, 8.4689], 'denmark': [56.2639, 9.5018], 'finland': [61.9241, 25.7482],
+        'czech republic': [49.8175, 15.4730], 'czechia': [49.8175, 15.4730], 'slovakia': [48.6690, 19.6990],
+        'hungary': [47.1625, 19.5033], 'romania': [45.9432, 24.9668], 'bulgaria': [42.7339, 25.4858],
+        'croatia': [45.1000, 15.2000], 'slovenia': [46.1512, 14.9955], 'serbia': [44.0165, 21.0059],
+        'bosnia': [43.9159, 17.6791], 'albania': [41.1533, 20.1683], 'kosovo': [42.6026, 20.9030], 'pristina': [42.6629, 21.1655],
+
+        // Middle East & North Africa
+        'turkey': [38.9637, 35.2433], 'türkiye': [38.9637, 35.2433], 'turkiye': [38.9637, 35.2433],
+        'united arab emirates': [23.4241, 53.8478], 'uae': [23.4241, 53.8478],
+        'dubai': [25.2048, 55.2708], 'al quoz': [25.1384, 55.2346], 'jafza': [24.9857, 55.0874], 'sharjah': [25.3463, 55.4209], 'abu dhabi': [24.4539, 54.3773],
+        'saudi arabia': [23.8859, 45.0792], 'ksa': [23.8859, 45.0792],
+        'riyadh': [24.7136, 46.6753], 'jeddah': [21.5433, 39.1728], 'dammam': [26.4207, 50.0888], 'jubail': [27.0046, 49.6225],
+        'qatar': [25.3548, 51.1839], 'doha': [25.2854, 51.5310], 'kuwait': [29.3117, 47.4818],
+        'oman': [21.5126, 55.9233], 'bahrain': [26.0667, 50.5577], 'jordan': [30.5852, 36.2384],
+        'egypt': [26.8206, 30.8025], 'cairo': [30.0444, 31.2357], 'morocco': [31.7917, -7.0926],
+
+        // Turkey Hubs
+        'sincan': [39.9583, 32.5786], 'ostim': [39.9725, 32.7483], 'ivedik': [39.9817, 32.7667], 'ankara': [39.9334, 32.8597],
+        'istanbul': [41.0082, 28.9784], 'esenyurt': [41.0342, 28.6801], 'basaksehir': [41.0967, 28.8028],
+        'tuzla': [40.8167, 29.3000], 'umraniye': [41.0256, 29.1172],
+        'tekirdag': [40.9781, 27.5117], 'tekirdağ': [40.9781, 27.5117], 'corlu': [41.1594, 27.7986], 'çorlu': [41.1594, 27.7986],
+        'cerkezkoy': [41.2917, 28.0017], 'çerkezköy': [41.2917, 28.0017], 'ergene': [41.2581, 27.6719],
+        'kapakli': [41.3236, 27.9783], 'kapaklı': [41.3236, 27.9783], 'velikoy': [41.2427, 27.9300], 'veliköy': [41.2427, 27.9300],
+        'izmir': [38.4237, 27.1428], 'bursa': [40.1885, 29.0610], 'antalya': [36.8969, 30.7133], 'konya': [37.8746, 32.4932],
+        'kocaeli': [40.8533, 29.8815], 'gebze': [40.8028, 29.4307], 'sakarya': [40.7569, 30.3783],
+
+        // China & Asia & Oceania
+        'china': [35.8617, 104.1954], 'foshan': [23.0215, 113.1214], 'dali': [23.1121, 113.1049], 'nanhai': [23.0287, 113.1429],
+        'guangzhou': [23.1291, 113.2644], 'shenzhen': [22.5431, 114.0579], 'dongguan': [23.0207, 113.7518],
+        'india': [20.5937, 78.9629], 'japan': [36.2048, 138.2529], 'south korea': [35.9078, 127.7669],
+        'australia': [-25.2744, 133.7751], 'brazil': [-14.2350, -51.9253], 'south africa': [-30.5595, 22.9375]
     };
 
     function resolveFallbackCoords(str) {
         if (!str) return null;
-        const low = String(str).toLowerCase();
-        for (const [k, v] of Object.entries(KNOWN_COORDS)) {
-            if (low.includes(k)) return v;
+        const low = String(str).toLowerCase().trim();
+        // Sort keys by descending length to match longest multi-word matches first
+        const sortedKeys = Object.keys(KNOWN_COORDS).sort((a, b) => b.length - a.length);
+        for (const k of sortedKeys) {
+            const re = new RegExp('\\b' + k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i');
+            if (re.test(low)) {
+                return KNOWN_COORDS[k];
+            }
         }
-        return [39.9334, 32.8597];
+        return null;
     }
 
     function hashSeed(str) {
@@ -560,7 +586,10 @@
 
                 // Client fallback geocoding if lat/lng is missing in document
                 if (lat === null || lng === null || !isFinite(lat) || !isFinite(lng)) {
-                    const fallback = resolveFallbackCoords(displayAddr);
+                    let fallback = resolveFallbackCoords(displayAddr);
+                    if (!fallback) {
+                        fallback = resolveFallbackCoords(loc);
+                    }
                     if (fallback) {
                         const jitter = (hashSeed(id || name) % 30 - 15) * 0.003;
                         lat = fallback[0] + jitter;

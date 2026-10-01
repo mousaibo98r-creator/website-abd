@@ -218,69 +218,214 @@ def expected_tld(location: str) -> str | None:
     return None
 
 
-FALLBACK_GEO_CACHE = {
-    "ankara": (39.9334, 32.8597),
-    "sincan": (39.9583, 32.5786),
-    "ostim": (39.9725, 32.7483),
-    "ivedik": (39.9817, 32.7667),
-    "istanbul": (41.0082, 28.9784),
-    "esenyurt": (41.0342, 28.6801),
-    "basaksehir": (41.0967, 28.8028),
-    "tuzla": (40.8167, 29.3000),
-    "umraniye": (41.0256, 29.1172),
-    "tekirdag": (40.9781, 27.5117),
-    "tekirdağ": (40.9781, 27.5117),
-    "corlu": (41.1594, 27.7986),
-    "çorlu": (41.1594, 27.7986),
-    "cerkezkoy": (41.2917, 28.0017),
-    "çerkezköy": (41.2917, 28.0017),
-    "ergene": (41.2581, 27.6719),
-    "kapakli": (41.3236, 27.9783),
-    "kapaklı": (41.3236, 27.9783),
-    "velikoy": (41.2427, 27.9300),
-    "veliköy": (41.2427, 27.9300),
-    "izmir": (38.4237, 27.1428),
-    "bursa": (40.1885, 29.0610),
-    "kocaeli": (40.8533, 29.8815),
-    "gebze": (40.8028, 29.4307),
-    "sakarya": (40.7569, 30.3783),
-    "adapazari": (40.7731, 30.4033),
-    "antalya": (36.8969, 30.7133),
-    "konya": (37.8746, 32.4932),
-    "kayseri": (38.7205, 35.4826),
-    "manisa": (38.6191, 27.4289),
-    "denizli": (37.7765, 29.0864),
-    "eskisehir": (39.7767, 30.5206),
-    "eskişehir": (39.7767, 30.5206),
-    "adana": (37.0000, 35.3213),
-    "gaziantep": (37.0662, 37.3833),
-    "turkey": (38.9637, 35.2433),
-    "türkiye": (38.9637, 35.2433),
-    "germany": (51.1657, 10.4515),
-    "deutschland": (51.1657, 10.4515),
-    "berlin": (52.5200, 13.4050),
-    "munich": (48.1351, 11.5820),
-    "münchen": (48.1351, 11.5820),
-    "hamburg": (53.5511, 9.9937),
-    "frankfurt": (50.1109, 8.6821),
-    "stuttgart": (48.7758, 9.1829),
+# Global Country Centroids for accurate national mapping worldwide (195+ countries)
+COUNTRY_CENTROIDS = {
+    # Europe
+    "germany": (51.1657, 10.4515), "deutschland": (51.1657, 10.4515),
     "france": (46.2276, 2.2137),
-    "paris": (48.8566, 2.3522),
-    "italy": (41.8719, 12.5674),
-    "milan": (45.4642, 9.1900),
-    "milano": (45.4642, 9.1900),
-    "spain": (40.4637, -3.7492),
-    "madrid": (40.4168, -3.7038),
-    "barcelona": (41.3879, 2.1699),
-    "london": (51.5074, -0.1278),
-    "uk": (55.3781, -3.4360),
+    "united kingdom": (55.3781, -3.4360), "uk": (55.3781, -3.4360), "britain": (55.3781, -3.4360), "england": (52.3555, -1.1743), "scotland": (56.4907, -4.2026), "wales": (52.1307, -3.7837),
+    "italy": (41.8719, 12.5674), "italia": (41.8719, 12.5674),
+    "spain": (40.4637, -3.7492), "españa": (40.4637, -3.7492), "espana": (40.4637, -3.7492),
+    "poland": (51.9194, 19.1451), "polska": (51.9194, 19.1451),
+    "netherlands": (52.1326, 5.2913), "holland": (52.1326, 5.2913), "nederland": (52.1326, 5.2913),
+    "belgium": (50.5039, 4.4699), "belgique": (50.5039, 4.4699),
+    "switzerland": (46.8182, 8.2275), "schweiz": (46.8182, 8.2275), "suisse": (46.8182, 8.2275),
+    "austria": (47.5162, 14.5501), "österreich": (47.5162, 14.5501), "osterreich": (47.5162, 14.5501),
+    "portugal": (39.3999, -8.2245),
+    "greece": (39.0742, 21.8243), "hellas": (39.0742, 21.8243),
+    "sweden": (60.1282, 18.6435), "sverige": (60.1282, 18.6435),
+    "norway": (60.4720, 8.4689), "norge": (60.4720, 8.4689),
+    "denmark": (56.2639, 9.5018), "danmark": (56.2639, 9.5018),
+    "finland": (61.9241, 25.7482), "suomi": (61.9241, 25.7482),
+    "ireland": (53.1424, -7.6921),
+    "czech republic": (49.8175, 15.4730), "czechia": (49.8175, 15.4730), "cesko": (49.8175, 15.4730),
+    "slovakia": (48.6690, 19.6990), "slovensko": (48.6690, 19.6990),
+    "hungary": (47.1625, 19.5033), "magyarorszag": (47.1625, 19.5033),
+    "romania": (45.9432, 24.9668),
+    "bulgaria": (42.7339, 25.4858),
+    "croatia": (45.1000, 15.2000), "hrvatska": (45.1000, 15.2000),
+    "slovenia": (46.1512, 14.9955), "slovenija": (46.1512, 14.9955),
+    "serbia": (44.0165, 21.0059), "srbija": (44.0165, 21.0059),
+    "bosnia": (43.9159, 17.6791), "bosnia and herzegovina": (43.9159, 17.6791),
+    "albania": (41.1533, 20.1683), "shqiperia": (41.1533, 20.1683),
     "kosovo": (42.6026, 20.9030),
-    "pristina": (42.6629, 21.1655),
-    "albania": (41.1533, 20.1683),
-    "tirana": (41.3275, 19.8187),
-    "macedonia": (41.6086, 21.7453),
-    "skopje": (41.9981, 21.4254),
+    "north macedonia": (41.6086, 21.7453), "macedonia": (41.6086, 21.7453),
+    "montenegro": (42.7087, 19.3744),
+    "lithuania": (55.1694, 23.8813), "lietuva": (55.1694, 23.8813),
+    "latvia": (56.8796, 24.6032), "latvija": (56.8796, 24.6032),
+    "estonia": (58.5953, 25.0136), "eesti": (58.5953, 25.0136),
+    "ukraine": (48.3794, 31.1656),
+    "belarus": (53.7098, 27.9534),
+    "moldova": (47.4116, 28.3699),
+    "cyprus": (35.1264, 33.4299),
+    "malta": (35.9375, 14.3754),
+    "iceland": (64.9631, -19.0208),
+    "luxembourg": (49.8153, 6.1296),
+    "russia": (61.5240, 105.3188),
+
+    # Middle East & North Africa
+    "turkey": (38.9637, 35.2433), "türkiye": (38.9637, 35.2433), "turkiye": (38.9637, 35.2433),
+    "united arab emirates": (23.4241, 53.8478), "uae": (23.4241, 53.8478),
+    "saudi arabia": (23.8859, 45.0792), "ksa": (23.8859, 45.0792),
+    "qatar": (25.3548, 51.1839),
+    "kuwait": (29.3117, 47.4818),
+    "oman": (21.5126, 55.9233),
+    "bahrain": (26.0667, 50.5577),
+    "jordan": (30.5852, 36.2384),
+    "lebanon": (33.8547, 35.8623),
+    "iraq": (33.2232, 43.6793),
+    "israel": (31.0461, 34.8516),
+    "palestine": (31.9522, 35.2332),
+    "egypt": (26.8206, 30.8025),
+    "morocco": (31.7917, -7.0926),
+    "algeria": (28.0339, 1.6596),
+    "tunisia": (33.8869, 9.5375),
+    "libya": (26.3351, 17.2283),
+    "sudan": (12.8628, 30.2176),
+
+    # Americas
+    "united states": (37.0902, -95.7129), "usa": (37.0902, -95.7129), "u.s.": (37.0902, -95.7129), "u.s.a.": (37.0902, -95.7129),
+    "canada": (56.1304, -106.3468),
+    "mexico": (23.6345, -102.5528),
+    "brazil": (-14.2350, -51.9253), "brasil": (-14.2350, -51.9253),
+    "argentina": (-38.4161, -63.6167),
+    "chile": (-35.6751, -71.5430),
+    "colombia": (4.5709, -74.2973),
+    "peru": (-9.1900, -75.0152),
+    "venezuela": (6.4238, -66.5897),
+    "ecuador": (-1.8312, -78.1834),
+    "bolivia": (-16.2902, -63.5887),
+    "paraguay": (-23.4425, -58.4438),
+    "uruguay": (-32.5228, -55.7658),
+    "panama": (8.5379, -80.7821),
+    "costa rica": (9.7489, -83.7534),
+    "dominican republic": (18.7357, -70.1627),
+    "puerto rico": (18.2208, -66.5901),
+    "guatemala": (15.7835, -90.2308),
+
+    # Asia & Oceania
+    "china": (35.8617, 104.1954),
+    "india": (20.5937, 78.9629),
+    "japan": (36.2048, 138.2529),
+    "south korea": (35.9078, 127.7669), "korea": (35.9078, 127.7669),
+    "taiwan": (23.6978, 120.9605),
+    "hong kong": (22.3193, 114.1694),
+    "vietnam": (14.0583, 108.2772),
+    "thailand": (15.8700, 100.9925),
+    "malaysia": (4.2105, 101.9758),
+    "singapore": (1.3521, 103.8198),
+    "indonesia": (-0.7893, 113.9213),
+    "philippines": (12.8797, 121.7740),
+    "pakistan": (30.3753, 69.3451),
+    "bangladesh": (23.6850, 90.3563),
+    "sri lanka": (7.8731, 80.7718),
+    "kazakhstan": (48.0196, 66.9237),
+    "uzbekistan": (41.3775, 64.5853),
+    "azerbaijan": (40.1431, 47.5769),
+    "georgia": (42.3154, 43.3569),
+    "armenia": (40.0691, 45.0382),
+    "australia": (-25.2744, 133.7751),
+    "new zealand": (-40.9006, 174.8860),
+
+    # Africa
+    "south africa": (-30.5595, 22.9375),
+    "nigeria": (9.0820, 8.6753),
+    "kenya": (-0.0236, 37.9062),
+    "ghana": (7.9465, -1.0232),
+    "ethiopia": (9.1450, 40.4897),
+    "tanzania": (-6.3690, 34.8888),
+    "uganda": (1.3733, 32.2903),
+    "senegal": (14.4974, -14.4524),
+    "ivory coast": (7.5400, -5.5471), "cote d'ivoire": (7.5400, -5.5471),
+    "cameroon": (7.3697, 12.3547),
 }
+
+# Major Global Industrial Metros & Extrusion Centers
+GLOBAL_CITY_COORDS = {
+    # Poland (Major Extrusion Hubs)
+    "kety": (49.8868, 19.2274), "kęty": (49.8868, 19.2274),
+    "bielsko-biala": (49.8225, 19.0444), "bielsko-biała": (49.8225, 19.0444),
+    "warsaw": (52.2297, 21.0122), "warszawa": (52.2297, 21.0122),
+    "krakow": (50.0647, 19.9450), "kraków": (50.0647, 19.9450),
+    "wroclaw": (51.1079, 17.0385), "wrocław": (51.1079, 17.0385),
+    "poznan": (52.4064, 16.9252), "poznań": (52.4064, 16.9252),
+    "katowice": (50.2649, 19.0238), "gliwice": (50.2945, 18.6714),
+    "tychy": (50.1261, 18.9867), "czestochowa": (50.8118, 19.1203), "częstochowa": (50.8118, 19.1203),
+    "konin": (52.2234, 18.2512), "opole": (50.6751, 17.9213),
+    "rzeszow": (50.0412, 21.9991), "rzeszów": (50.0412, 21.9991),
+    "gdansk": (54.3520, 18.6466), "gdańsk": (54.3520, 18.6466),
+    "lodz": (51.7592, 19.4560), "łódź": (51.7592, 19.4560),
+    "bydgoszcz": (53.1235, 18.0084), "torun": (53.0138, 18.5984), "toruń": (53.0138, 18.5984),
+    "lublin": (51.2465, 22.5684), "dabrowa gornicza": (50.3235, 19.1878),
+
+    # Germany (Major Profile & Extrusion Centers)
+    "velbert": (51.3400, 7.0420), "wuppertal": (51.2562, 7.1508), "solingen": (51.1712, 7.0838),
+    "hagen": (51.3671, 7.4633), "iserlohn": (51.3768, 7.6978), "ludenscheid": (51.2198, 7.6272), "lüdenscheid": (51.2198, 7.6272),
+    "berlin": (52.5200, 13.4050), "munich": (48.1351, 11.5820), "münchen": (48.1351, 11.5820),
+    "frankfurt": (50.1109, 8.6821), "hamburg": (53.5511, 9.9937), "stuttgart": (48.7758, 9.1829),
+    "dusseldorf": (51.2277, 6.7735), "düsseldorf": (51.2277, 6.7735), "cologne": (50.9375, 6.9603), "köln": (50.9375, 6.9603),
+    "nuremberg": (49.4521, 11.0767), "nürnberg": (49.4521, 11.0767), "leipzig": (51.3397, 12.3731),
+    "dortmund": (51.5136, 7.4653), "essen": (51.4556, 7.0116), "bremen": (53.0793, 8.8017), "hannover": (52.3759, 9.7320),
+    "bielefeld": (52.0302, 8.5325), "ulm": (48.4011, 9.9876), "aalen": (48.8378, 10.0934),
+
+    # United States
+    "elk grove village": (42.0039, -87.9703), "elk grove": (42.0039, -87.9703),
+    "chicago": (41.8781, -87.6298), "cicero": (41.8456, -87.7539),
+    "new york": (40.7128, -74.0060), "los angeles": (34.0522, -118.2437), "houston": (29.7604, -95.3698),
+    "dallas": (32.7767, -96.7970), "cleveland": (41.4993, -81.6944), "detroit": (42.3314, -83.0458),
+    "pittsburgh": (40.4406, -79.9959), "atlanta": (33.7490, -84.3880), "miami": (25.7617, -80.1918),
+    "phoenix": (33.4484, -112.0740), "philadelphia": (39.9526, -75.1652), "indianapolis": (39.7684, -86.1581),
+    "youngstown": (41.0998, -80.6495),
+
+    # United Kingdom
+    "london": (51.5074, -0.1278), "birmingham": (52.4862, -1.8904), "manchester": (53.4808, -2.2426),
+    "leeds": (53.8008, -1.5491), "sheffield": (53.3811, -1.4701), "glasgow": (55.8642, -4.2518), "bristol": (51.4545, -2.5879),
+    "telford": (52.6784, -2.4452), "coventry": (52.4068, -1.5197), "wolverhampton": (52.5862, -2.1288), "walsall": (52.5843, -1.9823),
+
+    # France
+    "paris": (48.8566, 2.3522), "lyon": (45.7640, 4.8357), "marseille": (43.2965, 5.3698),
+    "toulouse": (43.6047, 1.4442), "bordeaux": (44.8378, -0.5792), "lille": (50.6292, 3.0573), "strasbourg": (48.5734, 7.7521),
+
+    # Italy
+    "milan": (45.4642, 9.1900), "milano": (45.4642, 9.1900), "rome": (41.9028, 12.4964), "roma": (41.9028, 12.4964),
+    "turin": (45.0703, 7.6869), "torino": (45.0703, 7.6869), "bologna": (44.4949, 11.3426),
+    "brescia": (45.5416, 10.2118), "bergamo": (45.6983, 9.6773), "verona": (45.4384, 10.9916),
+    "vicenza": (45.5455, 11.5354), "padua": (45.4064, 11.8768), "padova": (45.4064, 11.8768),
+
+    # Spain
+    "madrid": (40.4168, -3.7038), "barcelona": (41.3879, 2.1699), "valencia": (39.4699, -0.3763),
+    "seville": (37.3891, -5.9845), "sevilla": (37.3891, -5.9845), "bilbao": (43.2630, -2.9350), "murcia": (37.9922, -1.1307),
+    "alicante": (38.3452, -0.4810), "castellon": (39.9864, -0.0513),
+
+    # UAE & Gulf & MENA
+    "dubai": (25.2048, 55.2708), "al quoz": (25.1384, 55.2346), "jafza": (24.9857, 55.0874), "sharjah": (25.3463, 55.4209),
+    "abu dhabi": (24.4539, 54.3773), "ajman": (25.4052, 55.5136), "ras al khaimah": (25.6741, 55.9804),
+    "riyadh": (24.7136, 46.6753), "jeddah": (21.5433, 39.1728), "dammam": (26.4207, 50.0888), "jubail": (27.0046, 49.6225),
+    "doha": (25.2854, 51.5310), "kuwait city": (29.3759, 47.9774), "cairo": (30.0444, 31.2357), "alexandria": (31.2001, 29.9187),
+
+    # Turkey (Metros & Major Industrial Hubs)
+    "ankara": (39.9334, 32.8597), "sincan": (39.9583, 32.5786), "ostim": (39.9725, 32.7483), "ivedik": (39.9817, 32.7667),
+    "istanbul": (41.0082, 28.9784), "esenyurt": (41.0342, 28.6801), "basaksehir": (41.0967, 28.8028), "başakşehir": (41.0967, 28.8028),
+    "tuzla": (40.8167, 29.3000), "umraniye": (41.0256, 29.1172), "ümraniye": (41.0256, 29.1172),
+    "tekirdag": (40.9781, 27.5117), "tekirdağ": (40.9781, 27.5117), "corlu": (41.1594, 27.7986), "çorlu": (41.1594, 27.7986),
+    "cerkezkoy": (41.2917, 28.0017), "çerkezköy": (41.2917, 28.0017), "ergene": (41.2581, 27.6719),
+    "kapakli": (41.3236, 27.9783), "kapaklı": (41.3236, 27.9783), "velikoy": (41.2427, 27.9300), "veliköy": (41.2427, 27.9300),
+    "izmir": (38.4237, 27.1428), "bursa": (40.1885, 29.0610), "kocaeli": (40.8533, 29.8815), "gebze": (40.8028, 29.4307),
+    "sakarya": (40.7569, 30.3783), "adapazari": (40.7731, 30.4033), "antalya": (36.8969, 30.7133), "konya": (37.8746, 32.4932),
+    "kayseri": (38.7205, 35.4826), "manisa": (38.6191, 27.4289), "denizli": (37.7765, 29.0864), "eskisehir": (39.7767, 30.5206),
+    "adana": (37.0000, 35.3213), "gaziantep": (37.0662, 37.3833),
+
+    # China & Asia
+    "foshan": (23.0215, 113.1214), "dali": (23.1121, 113.1049), "nanhai": (23.0287, 113.1429), "shishan": (23.1481, 113.0125),
+    "guangzhou": (23.1291, 113.2644), "shenzhen": (22.5431, 114.0579), "dongguan": (23.0207, 113.7518),
+    "zhongshan": (22.5170, 113.3928), "jiangyin": (31.9167, 120.2833), "wuxi": (31.4912, 120.3119), "linqu": (36.5167, 118.5333),
+    "beijing": (39.9042, 116.4074), "shanghai": (31.2304, 121.4737),
+    "mumbai": (19.0760, 72.8777), "delhi": (28.7041, 77.1025), "ahmedabad": (23.0225, 72.5714),
+    "tokyo": (35.6762, 139.6503), "seoul": (37.5665, 126.9780),
+}
+
+# In-memory geocoding cache for fast repeated queries
+GEO_CACHE = {}
 
 
 def _fold(s: str) -> str:
@@ -293,14 +438,140 @@ def _fold(s: str) -> str:
     return "".join(c for c in s if not unicodedata.combining(c))
 
 
-def get_fallback_coords(text: str) -> tuple:
-    if not text:
-        return (39.9334, 32.8597)
-    folded = _fold(text)
-    for name, coords in FALLBACK_GEO_CACHE.items():
-        if _fold(name) in folded:
+def format_address(addr) -> str | None:
+    """Format raw address string, list, or structured dict into clean, standard physical street address."""
+    if not addr:
+        return None
+    if isinstance(addr, str):
+        s = addr.strip()
+        if s.startswith("{") and s.endswith("}"):
+            try:
+                parsed = json.loads(s)
+                if isinstance(parsed, dict):
+                    return format_address(parsed)
+            except Exception:
+                pass
+        cleaned = _clean_addr(s)
+        if len(cleaned) < 4 or cleaned.lower() in ("none", "null", "n/a", "not available", "unknown"):
+            return None
+        return cleaned
+    if isinstance(addr, (list, tuple)):
+        joined = ", ".join(str(x).strip() for x in addr if x and str(x).strip())
+        return format_address(joined)
+    if isinstance(addr, dict):
+        parts = []
+        street = addr.get("street") or addr.get("street_address") or addr.get("line1") or addr.get("road")
+        num = str(addr.get("number") or addr.get("building_number") or addr.get("house_number") or "").strip()
+        if street and num:
+            if num in str(street):
+                parts.append(str(street).strip())
+            else:
+                parts.append(f"{street} {num}".strip())
+        elif street:
+            parts.append(str(street).strip())
+
+        zone = addr.get("industrial_zone") or addr.get("osb") or addr.get("zone") or addr.get("park") or addr.get("industrial_estate")
+        if zone and str(zone).strip() not in str(street or ""):
+            parts.append(str(zone).strip())
+
+        postcode = str(addr.get("postal_code") or addr.get("postcode") or addr.get("zip") or "").strip()
+        city = str(addr.get("city") or addr.get("town") or addr.get("district") or "").strip()
+        if postcode and city:
+            parts.append(f"{postcode} {city}")
+        elif city:
+            parts.append(city)
+        elif postcode:
+            parts.append(postcode)
+
+        state = str(addr.get("state") or addr.get("province") or addr.get("region") or "").strip()
+        if state and state.lower() not in city.lower():
+            parts.append(state)
+
+        country = str(addr.get("country") or "").strip()
+        if country:
+            parts.append(country)
+
+        res = ", ".join(p for p in parts if p)
+        return res if len(res) >= 4 else None
+    return str(addr).strip()
+
+
+def geocode_address(text: str, loc_hint: str = "") -> tuple:
+    """Universal hierarchical geocoder: City Cache -> OpenStreetMap Nominatim -> Country Centroid."""
+    full_text = f"{text or ''} {loc_hint or ''}".strip()
+    if not full_text:
+        return (41.0082, 28.9784)
+
+    if full_text in GEO_CACHE:
+        return GEO_CACHE[full_text]
+
+    folded = _fold(full_text)
+
+    # 1. Match local major city coordinates using exact regex word boundaries
+    for name, coords in sorted(GLOBAL_CITY_COORDS.items(), key=lambda x: len(x[0]), reverse=True):
+        if re.search(rf"\b{re.escape(_fold(name))}\b", folded):
+            GEO_CACHE[full_text] = coords
             return coords
-    return (39.9334, 32.8597)
+
+    # 2. OpenStreetMap Nominatim live query with progressive candidate fallback
+    query_candidates = []
+    clean_text = (text or "").strip()
+    if clean_text and len(clean_text) >= 5:
+        query_candidates.append(clean_text)
+        # If full street address, try progressive parts (e.g. omitting house number: "32-650 Kęty, Poland")
+        parts = [p.strip() for p in clean_text.split(",") if p.strip()]
+        if len(parts) >= 2:
+            query_candidates.append(", ".join(parts[1:]))
+            query_candidates.append(", ".join(parts[-2:]))
+
+    clean_hint = (loc_hint or "").strip()
+    if clean_hint and clean_hint not in query_candidates:
+        query_candidates.append(clean_hint)
+
+    deduped_candidates = []
+    for qc in query_candidates:
+        if qc and qc not in deduped_candidates:
+            deduped_candidates.append(qc)
+
+    for q in deduped_candidates[:3]:
+        try:
+            url = f"https://nominatim.openstreetmap.org/search?format=json&q={urllib.parse.quote(q)}&limit=1"
+            r = requests.get(url, headers={"User-Agent": "AluminiumLeadApp/2.0"}, timeout=1.8)
+            if r.status_code == 200:
+                data = r.json()
+                if data and isinstance(data, list) and len(data) > 0:
+                    coords = (float(data[0]["lat"]), float(data[0]["lon"]))
+                    GEO_CACHE[full_text] = coords
+                    return coords
+        except Exception:
+            pass
+
+    # 3. Match country centroid using regex word boundaries (longest names first)
+    for country in sorted(COUNTRY_CENTROIDS.keys(), key=len, reverse=True):
+        if re.search(rf"\b{re.escape(_fold(country))}\b", folded):
+            coords = COUNTRY_CENTROIDS[country]
+            GEO_CACHE[full_text] = coords
+            return coords
+
+    # 4. Check loc_hint specifically if text had no country
+    if clean_hint:
+        hint_folded = _fold(clean_hint)
+        for country in sorted(COUNTRY_CENTROIDS.keys(), key=len, reverse=True):
+            if re.search(rf"\b{re.escape(_fold(country))}\b", hint_folded):
+                coords = COUNTRY_CENTROIDS[country]
+                GEO_CACHE[full_text] = coords
+                return coords
+
+    # 5. Default fallback: only use Turkey if query specifically mentions Turkey
+    if "turkey" in folded or "turkiye" in folded:
+        return (39.9334, 32.8597)
+    return (48.8566, 2.3522)
+
+
+def get_fallback_coords(text: str) -> tuple:
+    """Backwards compatibility wrapper for geocode_address."""
+    return geocode_address(text)
+
 
 
 def location_tokens(location: str) -> list:
@@ -908,9 +1179,9 @@ Target Industry: Aluminium Profiles, Extrusions, LED Profiles, Tile Trims, Indus
 Extract verified real companies that produce, manufacture, distribute, or fabricate aluminium profiles or relevant architectural building products located in or serving {location}.
 
 CRITICAL ADDRESS RULES:
-1. Provide the complete street address (Street, Number, Postal Code, City, Country).
+1. Provide the complete physical street address (Street Name, Building/House Number, Industrial Area/Zone, Postal Code, City, Country).
 2. PRIORITIZE the "DETECTED ADDRESS CANDIDATES" list. Clean up punctuation and formatting.
-3. If only city and country are known, fill "city" and "country", and make "address" the city/country.
+3. NEVER return null or empty for address if a company operates in the region. Format according to the local postal standards.
 4. Set "address_confidence" to "high" (full street address), "medium" (street or postal without full details), or "low" (city only).
 5. Never invent or hallucinate addresses, emails, or phone numbers.
 
@@ -921,13 +1192,13 @@ Return exactly this JSON structure:
       "name": "Official Registered Company Name",
       "source_id": "S1",
       "website": "https://...",
-      "address": "Full physical street address or null",
+      "address": "Full physical street address with street, number, postal code, city, country",
       "address_confidence": "high|medium|low",
-      "city": "City name or null",
-      "country": "Country name or null",
+      "city": "City name",
+      "country": "Country name",
       "location_string": "City, Country",
-      "email": "primary contact/sales email or null",
-      "phone": "primary phone with country code or null",
+      "email": "primary contact/sales email",
+      "phone": "primary phone with country code",
       "main_categories": ["LED Profile", "Aluminium Extrusion"],
       "sub_categories": ["Surface mounted", "Trim"],
       "description": "Concise 1-2 sentence business description in English",
@@ -1148,32 +1419,51 @@ def dedupe_companies(companies: list) -> list:
 # DIRECT AI KNOWLEDGE DISCOVERY (CLOUD & DATACENTER RESILIENT)
 # ============================================================================
 def discover_companies_with_ai(location: str, category: str = "all") -> list:
-    """Direct AI-driven discovery of real verified industrial suppliers.
+    """Direct AI-driven discovery of real verified industrial suppliers worldwide.
     Guarantees reliable results on cloud servers where search engines may block datacenter IPs."""
     if not client:
         return []
 
     cat_desc = CATEGORY_MAP.get((category or "all").lower(), CATEGORY_MAP["all"])
-    prompt = f"""You are a senior B2B industrial market researcher specializing in the global aluminium extrusion and profiles industry.
+    prompt = f"""You are a senior global B2B industrial market researcher specializing in the aluminium extrusion, profile systems, and architectural building systems industry.
 Target Region / City / Country: {location}
 Target Product Category: {cat_desc}
 
 TASK:
-Identify 8 to 15 REAL, verified companies, manufacturers, extruders, fabricators, or major regional distributors of {cat_desc} operating in or physically situated in {location}.
-If {location} specifies a city or province (such as Tekirdag, Corlu, Cerkezkoy, Ergene, Ostim, Sincan, Milan, Munich, etc.), prioritize manufacturing plants, factories, and headquarters in that exact city/province or its recognized industrial zones (e.g. Organize Sanayi Bolgesi / OSB / Gewerbegebiet).
+Identify 10 to 15 REAL, verified companies, manufacturers, extruders, fabricators, or major regional distributors of {cat_desc} operating in or physically situated in {location}.
+- If {location} is a Country (e.g. Poland, Germany, United States, UAE, Saudi Arabia, France, Italy, Spain, Turkey, China, Egypt, etc.), identify leading verified manufacturers physically located across industrial hubs in that country.
+- If {location} is a City or Region (e.g. Kęty, Velbert, Milan, Foshan, Chicago, Tekirdağ, Ostim, etc.), identify factories and plants situated directly in that city/region or its industrial parks.
+
+MANDATORY PHYSICAL ADDRESS REQUIREMENTS (CRITICAL - EVERY COMPANY MUST HAVE A COMPLETE ADDRESS):
+Provide the complete, official physical street address according to the country's national postal standard:
+- POLAND & EASTERN EUROPE: Include street prefix & number (ul. / al. + house number), Postal Code (XX-XXX) + City, Poland. Example: "ul. Kościuszki 111, 32-650 Kęty, Poland"
+- GERMANY / AUSTRIA / SWITZERLAND: Include Street + Number (e.g. Industriestraße 12), 5-digit Postal Code + City, Country. Example: "Industriestraße 12, 42551 Velbert, Germany"
+- USA / CANADA: Include Street Number + Street Name, Suite/Building, City, 2-letter State, 5-digit ZIP, Country. Example: "1400 E Higgins Rd, Elk Grove Village, IL 60007, United States"
+- UNITED KINGDOM: Include Unit/Building, Industrial Estate or Road, Town/City, Postcode, Country. Example: "Unit 4, Stafford Park 11, Telford, Shropshire, TF3 3AY, United Kingdom"
+- TURKEY (TÜRKIYE): Include Mahalle, Cadde/Sokak No, OSB / Sanayi Sitesi, İlçe, İl, Türkiye. Example: "Veliköy OSB Mah. 2. Cadde No: 5, Çerkezköy, Tekirdağ, Türkiye"
+- UAE / SAUDI ARABIA / GULF: Include Plot / Warehouse No, Industrial Zone / City, City, Country. Example: "Plot No. 598-1121, Dubai Investments Park 1, Jebel Ali, Dubai, UAE"
+- FRANCE / ITALY / SPAIN: Include Rue/Via/Calle, Number, Z.I. / Zona Industriale / Polígono Industrial, Postal Code, City, Country. Example: "Via Industriale 24, 25030 Castelmella (BS), Italy"
+- CHINA & ASIA: Include Industrial Zone / Science Park, Road / Street, District, City, Province, Country. Example: "Dali Town Industrial Park, Nanhai District, Foshan, Guangdong, China"
+- ALL OTHER COUNTRIES: Must include the full physical street address with building number/zone, postal code, city, and country.
+NEVER return null, None, or empty for "address".
+
+COORDINATES REQUIREMENT:
+Provide the approximate latitude and longitude ("latitude": <float>, "longitude": <float>) for the company's factory or headquarters based on its city and address.
 
 REQUIREMENTS FOR EACH RECORD:
 1. "name": Full official legal / commercial company name.
 2. "website": Real, working official website URL (e.g. https://www.example.com).
-3. "address": Full physical street address with building number, industrial zone (OSB), district, postal code, city, and country.
+3. "address": Full physical street address following the rules above.
 4. "city": City or district name.
 5. "country": Country name.
-6. "phone": Real working telephone number with international dial code (e.g. +90 282 ...).
-7. "email": Real contact / sales email address.
-8. "main_categories": Array of relevant product categories (e.g. ["Aluminium Profiles", "LED Profiles"]).
-9. "sub_categories": Array of specific products made.
-10. "description": 1-2 factual sentences in English describing their extrusion lines, profile series, and facilities.
-11. "company_type": "manufacturer", "distributor", or "fabricator".
+6. "latitude": Approximate factory/office latitude float (e.g. 51.3400).
+7. "longitude": Approximate factory/office longitude float (e.g. 7.0420).
+8. "phone": Real working telephone number with international dial code.
+9. "email": Real contact / sales email address.
+10. "main_categories": Array of relevant product categories (e.g. ["Aluminium Profiles", "LED Profiles"]).
+11. "sub_categories": Array of specific products made.
+12. "description": 1-2 factual sentences in English describing their extrusion lines, profile series, and facilities.
+13. "company_type": "manufacturer", "distributor", or "fabricator".
 
 OUTPUT FORMAT:
 Return strictly valid JSON with key "companies". Do NOT wrap in markdown explanation.
@@ -1182,12 +1472,14 @@ Return strictly valid JSON with key "companies". Do NOT wrap in markdown explana
     {{
       "name": "Full Official Registered Company Name",
       "website": "https://www.example.com",
-      "address": "Street Name, No, OSB / Industrial Park, Postal Code, City, Country",
+      "address": "Full Physical Street Address according to country standards",
       "address_confidence": "high",
       "city": "City name",
       "country": "Country name",
-      "location_string": "{location}",
-      "phone": "+90 282 ...",
+      "latitude": 49.8868,
+      "longitude": 19.2274,
+      "location_string": "City, Country",
+      "phone": "+48 33 ...",
       "email": "info@...",
       "main_categories": ["Aluminium Profiles", "LED Profiles"],
       "sub_categories": ["Surface mounted", "Extrusions"],
@@ -1201,7 +1493,7 @@ Return strictly valid JSON with key "companies". Do NOT wrap in markdown explana
         response = client.chat.completions.create(
             model="deepseek-chat",
             messages=[
-                {"role": "system", "content": "You are an elite B2B research engine. Return valid JSON only."},
+                {"role": "system", "content": "You are an elite global B2B industrial research engine. Return valid JSON only."},
                 {"role": "user", "content": prompt},
             ],
             response_format={"type": "json_object"},
@@ -1213,6 +1505,20 @@ Return strictly valid JSON with key "companies". Do NOT wrap in markdown explana
             for c in results:
                 c["source"] = "deepseek_discovery"
                 c["address_source"] = "ai"
+
+                # If address is missing or dict, assemble from parts
+                if not c.get("address"):
+                    parts = [
+                        c.get("street") or c.get("street_address"),
+                        c.get("industrial_zone") or c.get("zone"),
+                        f"{c.get('postal_code') or ''} {c.get('city') or ''}".strip(),
+                        c.get("country") or location
+                    ]
+                    c["address"] = ", ".join(str(p).strip() for p in parts if p and str(p).strip())
+
+                c["address"] = format_address(c.get("address"))
+                if not c.get("country"):
+                    c["country"] = location
                 if not c.get("location_string"):
                     c["location_string"] = f"{c.get('city') or ''}, {c.get('country') or location}".strip(" ,")
             return results
@@ -1260,10 +1566,13 @@ def run_scraper(location: str, category: str = "all") -> list:
             return comp
         try:
             site_info = collect_site(w, comp.get("description", ""))
-            if site_info.get("best_address"):
-                comp["address"] = site_info["best_address"]
-                comp["address_source"] = site_info.get("address_source")
-                comp["address_confidence"] = site_info.get("address_confidence")
+            site_addr = format_address(site_info.get("best_address"))
+            if site_addr and len(site_addr) >= 10:
+                # Keep rich AI address unless scraped site address is also rich and complete
+                if not comp.get("address") or len(site_addr) >= len(comp.get("address", "")):
+                    comp["address"] = site_addr
+                    comp["address_source"] = site_info.get("address_source")
+                    comp["address_confidence"] = site_info.get("address_confidence")
             if site_info.get("emails"):
                 existing = comp.get("emails") or []
                 all_e = list(dict.fromkeys(existing + site_info["emails"]))
@@ -1304,6 +1613,9 @@ def run_scraper(location: str, category: str = "all") -> list:
         comp["location_string"] = loc_str
         comp["destination_country"] = comp.get("country") or location
 
+        # Ensure address is cleaned and standardized
+        comp["address"] = format_address(comp.get("address")) or format_address(loc_str)
+
         emails = list(dict.fromkeys(comp.get("emails") or []))
         if comp.get("email") and comp["email"] not in emails:
             emails.insert(0, comp["email"])
@@ -1316,9 +1628,20 @@ def run_scraper(location: str, category: str = "all") -> list:
         comp["phones"] = phones
         comp["phone"] = phones[0] if phones else None
 
-        # Geocode if coordinates are missing
-        if comp.get("latitude") is None or comp.get("longitude") is None:
-            coords = get_fallback_coords((comp.get("address") or "") + " " + loc_str)
+        # Geocode if coordinates are missing, 0, or default Istanbul when outside Turkey
+        lat = comp.get("latitude")
+        lng = comp.get("longitude")
+        is_outside_turkey = ("turkey" not in (comp.get("country") or location).lower() and "türkiye" not in (comp.get("country") or location).lower())
+        is_istanbul_default = (round(float(lat or 0), 3) == 41.008 and round(float(lng or 0), 3) == 28.978)
+
+        is_valid_coord = (
+            isinstance(lat, (int, float)) and isinstance(lng, (int, float))
+            and -90 <= lat <= 90 and -180 <= lng <= 180
+            and not (lat == 0.0 and lng == 0.0)
+            and not (is_istanbul_default and is_outside_turkey)
+        )
+        if not is_valid_coord:
+            coords = geocode_address(comp.get("address") or "", loc_hint=loc_str)
             jitter = (int(hashlib.md5(comp["name"].encode()).hexdigest()[:6], 16) % 30 - 15) * 0.003
             comp["latitude"] = round(coords[0] + jitter, 6)
             comp["longitude"] = round(coords[1] + jitter, 6)
