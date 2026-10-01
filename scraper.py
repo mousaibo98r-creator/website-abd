@@ -242,7 +242,7 @@ def _ai_json(system: str, user: str, max_tokens: int = 1000, temperature: float 
 # Step 1 (optional): AI suggests company NAMES only
 # --------------------------------------------------------------------------
 def suggest_company_names(location: str, category: str) -> list:
-    """Names only. Every name is later verified against a real website."""
+    """Names and URLs. Every URL is later verified by scraping."""
     if not client:
         return []
     cat = "" if category in ("", "all", None) else f" Focus: {category}."
@@ -251,13 +251,12 @@ def suggest_company_names(location: str, category: str) -> list:
         f"List up to {MAX_AI_NAMES} well-known companies that manufacture or distribute "
         f"aluminium profiles (LED profiles, tile trims, furniture/kitchen profiles, "
         f"architectural extrusions) in {location}.{cat}\n"
-        f"Only include companies you are confident exist. Names only, no addresses.\n"
-        f'Return JSON: {{"names": ["Company A", "Company B"]}}',
-        max_tokens=500,
+        f"Only include companies you are confident exist. Provide their official website URLs.\n"
+        f'Return JSON: {{"companies": [{{"name": "Company A", "url": "https://companya.com"}}]}}',
+        max_tokens=600,
         temperature=0.2,
     )
-    names = data.get("names") or []
-    return [str(n).strip() for n in names if isinstance(n, str) and n.strip()][:MAX_AI_NAMES]
+    return data.get("companies") or []
 
 
 # --------------------------------------------------------------------------
@@ -287,13 +286,18 @@ def search_urls(location: str, category: str, extra_names: list) -> list:
     loc = location.replace(",", " ").strip()
     found: dict = {}
 
-    # (a) verify AI-suggested names via search
-    for name in extra_names:
-        for r in _ddg(f"{name} {loc} official website", region, 3):
-            _accept_url((r.get("href") or "").split("#")[0], found)
-            if root_domain(r.get("href") or "") in found:
-                break
-        time.sleep(0.7)
+    # (a) verify AI-suggested names via search and include AI-provided URLs
+    for comp in extra_names:
+        if isinstance(comp, dict) and comp.get("url"):
+            _accept_url(comp["url"], found)
+            
+        name = comp.get("name") if isinstance(comp, dict) else str(comp)
+        if name and name.strip():
+            for r in _ddg(f"{name} {loc} official website", region, 3):
+                _accept_url((r.get("href") or "").split("#")[0], found)
+                if root_domain(r.get("href") or "") in found:
+                    break
+            time.sleep(0.7)
 
     # (b) keyword searches
     if category and category.lower() != "all":
