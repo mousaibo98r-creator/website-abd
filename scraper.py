@@ -1537,21 +1537,22 @@ def run_scraper(location: str, category: str = "all") -> list:
     ai_candidates = discover_companies_with_ai(location, category)
     print(f"DeepSeek AI discovery returned {len(ai_candidates)} candidates.")
 
-    # 2. Live Web Search (DuckDuckGo - if available and not blocked)
+    # 2. Live Web Search fallback (only if AI returned fewer than 8 candidates)
     web_candidates = []
-    try:
-        search_results = fetch_search_results(location, category)
-        if search_results:
-            batches = [search_results[i:i + AI_BATCH_SIZE] for i in range(0, len(search_results), AI_BATCH_SIZE)]
-            with ThreadPoolExecutor(max_workers=min(4, len(batches) or 1)) as pool:
-                futures = [pool.submit(parse_with_ai, b, location) for b in batches]
-                for fut in as_completed(futures):
-                    try:
-                        web_candidates.extend(fut.result())
-                    except Exception as e:
-                        print(f"Batch AI error: {e}")
-    except Exception as e:
-        print(f"Web search notice: {e}")
+    if len(ai_candidates) < 8:
+        try:
+            search_results = fetch_search_results(location, category)
+            if search_results:
+                batches = [search_results[i:i + AI_BATCH_SIZE] for i in range(0, len(search_results), AI_BATCH_SIZE)]
+                with ThreadPoolExecutor(max_workers=min(4, len(batches) or 1)) as pool:
+                    futures = [pool.submit(parse_with_ai, b, location) for b in batches]
+                    for fut in as_completed(futures):
+                        try:
+                            web_candidates.extend(fut.result())
+                        except Exception as e:
+                            print(f"Batch AI error: {e}")
+        except Exception as e:
+            print(f"Web search notice: {e}")
 
     # Combine all candidate companies
     combined = list(ai_candidates) + list(web_candidates)
