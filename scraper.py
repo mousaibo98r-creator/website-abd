@@ -537,19 +537,30 @@ def run_scraper(location: str, category: str = "all") -> list:
 
         comp["address"] = format_address(comp.get("address")) or format_address(loc_str)
 
-        # Geocode coordinates
-        lat = comp.get("latitude")
-        lng = comp.get("longitude")
+        # Safely parse coordinates
+        lat_val = None
+        lng_val = None
+        try:
+            if comp.get("latitude") is not None:
+                lat_val = float(comp["latitude"])
+            if comp.get("longitude") is not None:
+                lng_val = float(comp["longitude"])
+        except (ValueError, TypeError):
+            lat_val, lng_val = None, None
+
         is_outside_turkey = ("turkey" not in (comp.get("country") or location).lower() and "türkiye" not in (comp.get("country") or location).lower())
-        is_istanbul_default = (round(float(lat or 0), 3) == 41.008 and round(float(lng or 0), 3) == 28.978)
+        is_istanbul_default = (lat_val is not None and lng_val is not None and round(lat_val, 3) == 41.008 and round(lng_val, 3) == 28.978)
 
         is_valid_coord = (
-            isinstance(lat, (int, float)) and isinstance(lng, (int, float))
-            and -90 <= lat <= 90 and -180 <= lng <= 180
-            and not (lat == 0.0 and lng == 0.0)
+            lat_val is not None and lng_val is not None
+            and -90 <= lat_val <= 90 and -180 <= lng_val <= 180
+            and not (lat_val == 0.0 and lng_val == 0.0)
             and not (is_istanbul_default and is_outside_turkey)
         )
-        if not is_valid_coord:
+        if is_valid_coord:
+            comp["latitude"] = lat_val
+            comp["longitude"] = lng_val
+        else:
             coords = geocode_address(comp.get("address") or "", loc_hint=loc_str)
             jitter = (int(hashlib.md5(comp["name"].encode()).hexdigest()[:6], 16) % 30 - 15) * 0.003
             comp["latitude"] = round(coords[0] + jitter, 6)
