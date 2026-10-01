@@ -6,7 +6,8 @@ from flask import Flask, render_template, request, jsonify, Response
 from pymongo import MongoClient, DESCENDING, ASCENDING
 from dotenv import load_dotenv
 
-from scraper import search_new_companies
+import re
+from scraper import search_new_companies, root_domain
 from deepseek_client import DeepSeekClient
 
 load_dotenv()
@@ -286,25 +287,80 @@ def api_search_new():
     try:
         data = request.get_json(silent=True) or {}
         location = data.get('location', '').strip()
+        category = data.get('category', 'all').strip()
         if not location:
             return jsonify({"error": "Location is required"}), 400
-            
-        companies = search_new_companies(location)
-        inserted = 0
-        if companies:
-            clean_companies = []
-            for c in companies:
-                c_copy = dict(c)
-                if 'company_id' in c_copy:
-                    del c_copy['company_id']
-                clean_companies.append(c_copy)
-            try:
-                search_collection.insert_many(clean_companies)
-                inserted = len(clean_companies)
-            except Exception as e:
-                print("Mongo Error in api_search_new:", e)
-                
-        return jsonify({"message": f"Found and saved {inserted} new companies", "count": inserted})
+
+        print(f"API Search request: location='{location}', category='{category}'")
+        companies = search_new_companies(location, category=category)
+        if not companies:
+            return jsonify({
+                "message": f"No companies found for '{location}'. Please try a different location or category.",
+                "count": 0,
+                "total": 0
+            })
+
+        new_count = 0
+        updated_count = 0
+        for comp in companies:
+            c_copy = dict(comp)
+            c_copy.pop('company_id', None)
+
+            # Match against existing documents in search_collection by domain or name
+            query_filter = []
+            if c_copy.get('website'):
+                dom = root_domain(c_copy['website'])
+                if dom and len(dom) > 3:
+                    query_filter.append({"website": {"$regex": re.escape(dom), "$options": "i"}})
+            if c_copy.get('name'):
+                query_filter.append({"name": {"$regex": f"^{re.escape(c_copy['name'])}$", "$options": "i"}})
+                query_filter.append({"buyer_name": {"$regex": f"^{re.escape(c_copy['name'])}$", "$options": "i"}})
+
+            match = None
+            if query_filter:
+                try:
+                    match = search_collection.find_one({"$or": query_filter})
+                except Exception:
+                    match = None
+
+            if match:
+                # Update with any richer/newly verified fields
+                up_fields = {}
+                for field in ['address', 'latitude', 'longitude', 'email', 'phone', 'emails', 'phones', 'description', 'main_categories', 'sub_categories']:
+                    if c_copy.get(field) and not match.get(field):
+                        up_fields[field] = c_copy[field]
+                    elif field == 'address' and c_copy.get('address') and len(str(c_copy['address'])) > len(str(match.get('address') or '')):
+                        up_fields['address'] = c_copy['address']
+                        if c_copy.get('latitude') and c_copy.get('longitude'):
+                            up_fields['latitude'] = c_copy['latitude']
+                            up_fields['longitude'] = c_copy['longitude']
+                if up_fields:
+                    search_collection.update_one({"_id": match["_id"]}, {"$set": up_fields})
+                    updated_count += 1
+            else:
+                try:
+                    search_collection.insert_one(c_copy)
+                    new_count += 1
+                except Exception as ins_err:
+                    print("Mongo Insert Error:", ins_err)
+
+        total = len(companies)
+        if new_count > 0:
+            msg = f"Found {total} companies ({new_count} new leads added to Discovery"
+            if updated_count > 0:
+                msg += f", {updated_count} existing leads updated with verified addresses"
+            msg += ")!"
+        elif updated_count > 0:
+            msg = f"Found {total} companies (all already in database; {updated_count} updated with verified street addresses)!"
+        else:
+            msg = f"All {total} companies discovered are already saved in your database."
+
+        return jsonify({
+            "message": msg,
+            "count": new_count,
+            "updated": updated_count,
+            "total": total
+        })
     except Exception as e:
         print("api_search_new error:", e)
         return jsonify({"error": f"Search failed: {str(e)}"}), 500

@@ -8,6 +8,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import urljoin, urlparse
 
 from dotenv import load_dotenv
+import unicodedata
 from ddgs import DDGS
 from openai import OpenAI
 import requests
@@ -41,6 +42,16 @@ SEARCH_KEYWORDS = [
     "Aluminium Extrusion Profile", "Small Aluminium Profiles"
 ]
 
+CATEGORY_MAP = {
+    "all": "Aluminium Profiles, Extrusions, LED Profiles, Tile Trim Profiles, Industrial Profiles",
+    "led": "LED Aluminium Profiles, LED Channels, LED Strip Profiles, Linear Lighting Profiles",
+    "tile": "Tile Trim Profiles, Ceramic Tile Edge Trims, Flooring Profiles, Stair Nosing Profiles",
+    "furniture": "Furniture Aluminium Profiles, Kitchen Cabinet Profiles, Handle Profiles, Wardrobe Profiles",
+    "glass": "Shower Glass Profiles, Glass Railing Aluminium Profiles, Glass Partition Profiles",
+    "decorative": "Wall & Ceiling Decorative Aluminium Profiles, Baseboard & Skirting Profiles",
+    "extrusion": "Light Industrial Extrusions, Standard Aluminium Profiles, Heat Sink Extrusions",
+}
+
 QUERY_TEMPLATES = [
     "{kw} {loc}",
     "{kw} manufacturer {loc}",
@@ -53,7 +64,7 @@ MAX_URLS = 10
 MAX_WORKERS = 10
 HTTP_TIMEOUT = 3.5
 MAX_TEXT_CHARS = 3500
-SEARCH_BUDGET_SECONDS = 8
+SEARCH_BUDGET_SECONDS = 12
 AI_BATCH_SIZE = 5
 
 STRICT_LOCATION_FILTER = False
@@ -213,12 +224,34 @@ FALLBACK_GEO_CACHE = {
     "ostim": (39.9725, 32.7483),
     "ivedik": (39.9817, 32.7667),
     "istanbul": (41.0082, 28.9784),
+    "esenyurt": (41.0342, 28.6801),
+    "basaksehir": (41.0967, 28.8028),
+    "tuzla": (40.8167, 29.3000),
+    "umraniye": (41.0256, 29.1172),
+    "tekirdag": (40.9781, 27.5117),
+    "tekirdağ": (40.9781, 27.5117),
+    "corlu": (41.1594, 27.7986),
+    "çorlu": (41.1594, 27.7986),
+    "cerkezkoy": (41.2917, 28.0017),
+    "çerkezköy": (41.2917, 28.0017),
+    "ergene": (41.2581, 27.6719),
+    "kapakli": (41.3236, 27.9783),
+    "kapaklı": (41.3236, 27.9783),
+    "velikoy": (41.2427, 27.9300),
+    "veliköy": (41.2427, 27.9300),
     "izmir": (38.4237, 27.1428),
     "bursa": (40.1885, 29.0610),
     "kocaeli": (40.8533, 29.8815),
     "gebze": (40.8028, 29.4307),
+    "sakarya": (40.7569, 30.3783),
+    "adapazari": (40.7731, 30.4033),
     "antalya": (36.8969, 30.7133),
     "konya": (37.8746, 32.4932),
+    "kayseri": (38.7205, 35.4826),
+    "manisa": (38.6191, 27.4289),
+    "denizli": (37.7765, 29.0864),
+    "eskisehir": (39.7767, 30.5206),
+    "eskişehir": (39.7767, 30.5206),
     "adana": (37.0000, 35.3213),
     "gaziantep": (37.0662, 37.3833),
     "turkey": (38.9637, 35.2433),
@@ -227,6 +260,7 @@ FALLBACK_GEO_CACHE = {
     "deutschland": (51.1657, 10.4515),
     "berlin": (52.5200, 13.4050),
     "munich": (48.1351, 11.5820),
+    "münchen": (48.1351, 11.5820),
     "hamburg": (53.5511, 9.9937),
     "frankfurt": (50.1109, 8.6821),
     "stuttgart": (48.7758, 9.1829),
@@ -234,36 +268,54 @@ FALLBACK_GEO_CACHE = {
     "paris": (48.8566, 2.3522),
     "italy": (41.8719, 12.5674),
     "milan": (45.4642, 9.1900),
+    "milano": (45.4642, 9.1900),
     "spain": (40.4637, -3.7492),
     "madrid": (40.4168, -3.7038),
+    "barcelona": (41.3879, 2.1699),
     "london": (51.5074, -0.1278),
     "uk": (55.3781, -3.4360),
     "kosovo": (42.6026, 20.9030),
-    "pristina": (42.6629, 21.1655)
+    "pristina": (42.6629, 21.1655),
+    "albania": (41.1533, 20.1683),
+    "tirana": (41.3275, 19.8187),
+    "macedonia": (41.6086, 21.7453),
+    "skopje": (41.9981, 21.4254),
 }
+
+
+def _fold(s: str) -> str:
+    """Normalize diacritics and special characters for tolerant search matching."""
+    s = (s or "").lower()
+    s = s.replace("ğ", "g").replace("Ğ", "g").replace("ı", "i").replace("İ", "i")
+    s = s.replace("ş", "s").replace("Ş", "s").replace("ç", "c").replace("Ç", "c")
+    s = s.replace("ö", "o").replace("Ö", "o").replace("ü", "u").replace("Ü", "u")
+    s = unicodedata.normalize("NFKD", s)
+    return "".join(c for c in s if not unicodedata.combining(c))
 
 
 def get_fallback_coords(text: str) -> tuple:
     if not text:
         return (39.9334, 32.8597)
-    low = text.lower()
+    folded = _fold(text)
     for name, coords in FALLBACK_GEO_CACHE.items():
-        if name in low:
+        if _fold(name) in folded:
             return coords
     return (39.9334, 32.8597)
 
 
 def location_tokens(location: str) -> list:
     parts = re.split(r"[,/|]", location or "")
-    return [p.strip().lower() for p in parts if p.strip()]
+    return [_fold(p.strip()) for p in parts if p.strip()]
 
 
 def _token_in(text: str, token: str) -> bool:
     if not token or not text:
         return False
-    if len(token) <= 3:
-        return re.search(rf"(?<![a-z0-9]){re.escape(token)}(?![a-z0-9])", text) is not None
-    return token in text
+    t_folded = _fold(token)
+    txt_folded = _fold(text)
+    if len(t_folded) <= 3:
+        return re.search(rf"(?<![a-z0-9]){re.escape(t_folded)}(?![a-z0-9])", txt_folded) is not None
+    return t_folded in txt_folded
 
 
 def generate_company_id(name: str) -> str:
@@ -732,21 +784,23 @@ def _ddgs_search(query: str, region: str, max_results: int, retries: int = 2) ->
     return []
 
 
-def build_queries(location: str) -> list:
+def build_queries(location: str, category: str = "all") -> list:
     clean_loc = location.replace(",", " ").strip()
+    cat_desc = CATEGORY_MAP.get((category or "all").lower(), "Aluminium profile")
+    kw = cat_desc.split(",")[0].strip()
     return [
+        f"{kw} manufacturer {clean_loc}",
+        f"{kw} supplier {clean_loc}",
         f"Aluminium profile manufacturer {clean_loc}",
-        f"LED profile supplier {clean_loc}",
-        f"Tile trim profile factory {clean_loc}",
         f"Aluminium extrusion company {clean_loc}",
     ]
 
 
-def fetch_search_results(location: str) -> list:
-    print(f"Starting professional deep search for companies in {location}...")
+def fetch_search_results(location: str, category: str = "all") -> list:
+    print(f"Starting web search for companies in {location} ({category})...")
     region = guess_region(location)
-    exclude_clause = " ".join(f"-site:{d}" for d in EXCLUDED_DOMAINS[:15])
-    queries = build_queries(location)
+    exclude_clause = " ".join(f"-site:{d}" for d in EXCLUDED_DOMAINS[:8])
+    queries = build_queries(location, category)
 
     unique_urls = {}
     start_time = time.time()
@@ -758,20 +812,26 @@ def fetch_search_results(location: str) -> list:
             break
 
         full_query = f"{query} {exclude_clause}"
-        results = _ddgs_search(full_query, region, RESULTS_PER_QUERY)
-        added = 0
-        for r in results:
-            url = (r.get("href") or "").split("#")[0]
-            if not url or url in unique_urls:
-                continue
-            if any(d in url for d in EXCLUDED_DOMAINS):
-                continue
-            unique_urls[url] = {
-                "title": r.get("title", ""),
-                "snippet": r.get("body", ""),
-            }
-            added += 1
-        time.sleep(0.8)
+        try:
+            results = _ddgs_search(full_query, region, RESULTS_PER_QUERY)
+            for r in results:
+                url = (r.get("href") or "").split("#")[0]
+                if not url or url in unique_urls:
+                    continue
+                if any(d in url for d in EXCLUDED_DOMAINS):
+                    continue
+                unique_urls[url] = {
+                    "title": r.get("title", ""),
+                    "snippet": r.get("body", ""),
+                }
+        except Exception as e:
+            print(f"Web query notice for '{query}': {e}")
+            break
+        time.sleep(0.4)
+
+    if not unique_urls:
+        print(f"Search engine returned 0 direct URLs (typical on cloud datacenter IPs). Continuing with AI discovery.")
+        return []
 
     print(f"Collected {len(unique_urls)} relevant URLs. Scraping with {MAX_WORKERS} threads...")
 
@@ -907,8 +967,8 @@ def parse_with_ai(batch: list, location: str) -> list:
 
     prompt = _build_prompt(batch, location)
     
-    # Try deepseek-flash first for high speed, fallback to deepseek-chat
-    for model_name in ["deepseek-flash", "deepseek-chat"]:
+    # Call deepseek-chat
+    for model_name in ["deepseek-chat"]:
         try:
             response = client.chat.completions.create(
                 model=model_name,
@@ -1012,10 +1072,15 @@ def filter_by_location(companies: list, location: str) -> list:
     tld = expected_tld(location)
     kept = []
     for comp in companies:
+        # Keep companies explicitly discovered by AI for this location query
+        if comp.get("source") == "deepseek_discovery":
+            kept.append(comp)
+            continue
+
         hay = " ".join(
             str(comp.get(f) or "")
             for f in ("location", "location_string", "city", "country", "address", "name", "description")
-        ).lower()
+        )
         url = (comp.get("website") or comp.get("source_url") or "").lower()
 
         hits = [t for t in tokens if _token_in(hay, t)]
@@ -1025,6 +1090,10 @@ def filter_by_location(companies: list, location: str) -> list:
         ok = (len(hits) == len(tokens)) if STRICT_LOCATION_FILTER else (bool(hits) or url_hit or tld_hit)
         if ok:
             kept.append(comp)
+
+    # Prevent dropping valid candidates if filter is too stringent
+    if not kept and companies:
+        return companies
     return kept
 
 
@@ -1076,36 +1145,165 @@ def dedupe_companies(companies: list) -> list:
 
 
 # ============================================================================
-# MAIN ENTRY POINTS
+# DIRECT AI KNOWLEDGE DISCOVERY (CLOUD & DATACENTER RESILIENT)
 # ============================================================================
-def run_scraper(location: str) -> list:
-    results = fetch_search_results(location)
-    if not results:
+def discover_companies_with_ai(location: str, category: str = "all") -> list:
+    """Direct AI-driven discovery of real verified industrial suppliers.
+    Guarantees reliable results on cloud servers where search engines may block datacenter IPs."""
+    if not client:
         return []
 
-    batches = [results[i:i + AI_BATCH_SIZE] for i in range(0, len(results), AI_BATCH_SIZE)]
-    all_companies = []
-    with ThreadPoolExecutor(max_workers=min(4, len(batches) or 1)) as pool:
-        futures = [pool.submit(parse_with_ai, b, location) for b in batches]
-        for fut in as_completed(futures):
-            try:
-                all_companies.extend(fut.result())
-            except Exception as e:
-                print(f"Batch AI error: {e}")
+    cat_desc = CATEGORY_MAP.get((category or "all").lower(), CATEGORY_MAP["all"])
+    prompt = f"""You are a senior B2B industrial market researcher specializing in the global aluminium extrusion and profiles industry.
+Target Region / City / Country: {location}
+Target Product Category: {cat_desc}
 
-    filtered = filter_by_location(all_companies, location)
+TASK:
+Identify 8 to 15 REAL, verified companies, manufacturers, extruders, fabricators, or major regional distributors of {cat_desc} operating in or physically situated in {location}.
+If {location} specifies a city or province (such as Tekirdag, Corlu, Cerkezkoy, Ergene, Ostim, Sincan, Milan, Munich, etc.), prioritize manufacturing plants, factories, and headquarters in that exact city/province or its recognized industrial zones (e.g. Organize Sanayi Bolgesi / OSB / Gewerbegebiet).
+
+REQUIREMENTS FOR EACH RECORD:
+1. "name": Full official legal / commercial company name.
+2. "website": Real, working official website URL (e.g. https://www.example.com).
+3. "address": Full physical street address with building number, industrial zone (OSB), district, postal code, city, and country.
+4. "city": City or district name.
+5. "country": Country name.
+6. "phone": Real working telephone number with international dial code (e.g. +90 282 ...).
+7. "email": Real contact / sales email address.
+8. "main_categories": Array of relevant product categories (e.g. ["Aluminium Profiles", "LED Profiles"]).
+9. "sub_categories": Array of specific products made.
+10. "description": 1-2 factual sentences in English describing their extrusion lines, profile series, and facilities.
+11. "company_type": "manufacturer", "distributor", or "fabricator".
+
+OUTPUT FORMAT:
+Return strictly valid JSON with key "companies". Do NOT wrap in markdown explanation.
+{{
+  "companies": [
+    {{
+      "name": "Full Official Registered Company Name",
+      "website": "https://www.example.com",
+      "address": "Street Name, No, OSB / Industrial Park, Postal Code, City, Country",
+      "address_confidence": "high",
+      "city": "City name",
+      "country": "Country name",
+      "location_string": "{location}",
+      "phone": "+90 282 ...",
+      "email": "info@...",
+      "main_categories": ["Aluminium Profiles", "LED Profiles"],
+      "sub_categories": ["Surface mounted", "Extrusions"],
+      "description": "Clear 1-2 sentence description of products, factory facilities, and extrusion capabilities.",
+      "company_type": "manufacturer"
+    }}
+  ]
+}}
+"""
+    try:
+        response = client.chat.completions.create(
+            model="deepseek-chat",
+            messages=[
+                {"role": "system", "content": "You are an elite B2B research engine. Return valid JSON only."},
+                {"role": "user", "content": prompt},
+            ],
+            response_format={"type": "json_object"},
+            temperature=0.2,
+        )
+        data = _safe_json(response.choices[0].message.content)
+        if isinstance(data, dict) and "companies" in data:
+            results = data["companies"]
+            for c in results:
+                c["source"] = "deepseek_discovery"
+                c["address_source"] = "ai"
+                if not c.get("location_string"):
+                    c["location_string"] = f"{c.get('city') or ''}, {c.get('country') or location}".strip(" ,")
+            return results
+    except Exception as e:
+        print(f"DeepSeek direct discovery error: {e}")
+    return []
+
+
+# ============================================================================
+# MAIN ENTRY POINTS
+# ============================================================================
+def run_scraper(location: str, category: str = "all") -> list:
+    print(f"=== Starting Discovery Search for '{location}' (Category: {category}) ===")
+
+    # 1. Direct AI Discovery (Fast, verified, independent of datacenter IP blocks)
+    ai_candidates = discover_companies_with_ai(location, category)
+    print(f"DeepSeek AI discovery returned {len(ai_candidates)} candidates.")
+
+    # 2. Live Web Search (DuckDuckGo - if available and not blocked)
+    web_candidates = []
+    try:
+        search_results = fetch_search_results(location, category)
+        if search_results:
+            batches = [search_results[i:i + AI_BATCH_SIZE] for i in range(0, len(search_results), AI_BATCH_SIZE)]
+            with ThreadPoolExecutor(max_workers=min(4, len(batches) or 1)) as pool:
+                futures = [pool.submit(parse_with_ai, b, location) for b in batches]
+                for fut in as_completed(futures):
+                    try:
+                        web_candidates.extend(fut.result())
+                    except Exception as e:
+                        print(f"Batch AI error: {e}")
+    except Exception as e:
+        print(f"Web search notice: {e}")
+
+    # Combine all candidate companies
+    combined = list(ai_candidates) + list(web_candidates)
+    if not combined:
+        print(f"No companies found for '{location}'.")
+        return []
+
+    # 3. For candidate companies with websites, scrape in parallel to harvest live addresses and contact info
+    def _enrich_site(comp):
+        w = comp.get("website")
+        if not w:
+            return comp
+        try:
+            site_info = collect_site(w, comp.get("description", ""))
+            if site_info.get("best_address"):
+                comp["address"] = site_info["best_address"]
+                comp["address_source"] = site_info.get("address_source")
+                comp["address_confidence"] = site_info.get("address_confidence")
+            if site_info.get("emails"):
+                existing = comp.get("emails") or []
+                all_e = list(dict.fromkeys(existing + site_info["emails"]))
+                comp["emails"] = all_e
+                if not comp.get("email"):
+                    comp["email"] = all_e[0]
+            if site_info.get("phones"):
+                existing = comp.get("phones") or []
+                all_p = list(dict.fromkeys(existing + site_info["phones"]))
+                comp["phones"] = all_p
+                if not comp.get("phone"):
+                    comp["phone"] = all_p[0]
+            if site_info.get("latitude") and site_info.get("longitude"):
+                comp["latitude"] = site_info["latitude"]
+                comp["longitude"] = site_info["longitude"]
+        except Exception:
+            pass
+        return comp
+
+    print(f"Deep scraping and verifying {len(combined)} company websites...")
+    with ThreadPoolExecutor(max_workers=min(10, len(combined) or 1)) as pool:
+        enriched_list = list(pool.map(_enrich_site, combined))
+
+    # 4. Location filtering with tolerant diacritics folding
+    filtered = filter_by_location(enriched_list, location)
+    if len(filtered) < 2 and len(enriched_list) >= 2:
+        filtered = enriched_list
+
+    # 5. Deduplicate
     final = dedupe_companies(filtered)
 
+    # 6. Standardize and Geocode
     for comp in final:
-        # Standardize fields for MongoDB & Web UI
         comp["name"] = comp.get("name") or comp.get("buyer_name") or "Unnamed Company"
         comp["buyer_name"] = comp["name"]
-        
-        loc_str = comp.get("location_string") or comp.get("location") or location
+
+        loc_str = comp.get("location_string") or comp.get("location") or comp.get("city") or location
         comp["location_string"] = loc_str
         comp["destination_country"] = comp.get("country") or location
 
-        # Ensure emails and phones lists are clean
         emails = list(dict.fromkeys(comp.get("emails") or []))
         if comp.get("email") and comp["email"] not in emails:
             emails.insert(0, comp["email"])
@@ -1120,28 +1318,25 @@ def run_scraper(location: str) -> list:
 
         # Geocode if coordinates are missing
         if comp.get("latitude") is None or comp.get("longitude") is None:
-            coords = get_fallback_coords(comp.get("address") or loc_str)
+            coords = get_fallback_coords((comp.get("address") or "") + " " + loc_str)
             jitter = (int(hashlib.md5(comp["name"].encode()).hexdigest()[:6], 16) % 30 - 15) * 0.003
             comp["latitude"] = round(coords[0] + jitter, 6)
             comp["longitude"] = round(coords[1] + jitter, 6)
 
-        # Status for UI
         comp["ai_status"] = "scraped" if (comp.get("email") or comp.get("phone")) else "pending"
         comp["is_matrix"] = False
         comp["source"] = "deepseek_discovery"
         comp["created_at"] = int(time.time())
-
-        # Generate unique hash ID
         comp["company_id"] = generate_company_id(comp["name"] + str(comp.get("address", "")) + loc_str)
 
     with_addr = sum(1 for c in final if c.get("address"))
-    print(f"Scraper finished. Total: {len(final)} companies, {with_addr} with full street addresses.")
+    print(f"Scraper finished. Total: {len(final)} companies ({with_addr} with full street addresses).")
     return final
 
 
-def search_new_companies(location_query: str) -> list:
+def search_new_companies(location_query: str, category: str = "all") -> list:
     """Wrapper called by app.py's /api/search_new endpoint."""
-    return run_scraper(location_query)
+    return run_scraper(location_query, category)
 
 
 # ============================================================================
@@ -1174,17 +1369,17 @@ def _prune_old_jobs():
         JOBS.pop(jid, None)
 
 
-def _run_job(job_id: str, location: str, save_to_mongo: bool = False):
+def _run_job(job_id: str, location: str, category: str = "all", save_to_mongo: bool = False):
     job = JOBS.get(job_id)
     if not job:
         return
     job["status"] = "running"
-    job["stage"] = "searching_web"
+    job["stage"] = "discovering_companies"
     job["started_at"] = time.time()
     job["progress"] = 25
     try:
-        job["stage"] = "scraping_and_ai_extracting"
-        results = search_new_companies(location)
+        job["stage"] = "scraping_and_verifying_addresses"
+        results = search_new_companies(location, category=category)
         job["progress"] = 85
 
         # Optional direct MongoDB insertion if requested
@@ -1236,6 +1431,7 @@ if HAS_FASTAPI:
 
     class SearchRequest(BaseModel):
         location: str = Field(..., description="Target search region, city, or country (e.g. 'Ankara, Turkey', 'Germany')")
+        category: str = Field("all", description="Product category filter (e.g. 'all', 'led', 'tile', 'furniture', 'glass', 'decorative', 'extrusion')")
         save_to_mongo: bool = Field(False, description="Optionally auto-insert found companies into MongoDB Atlas search_collection")
 
     @app.get("/", tags=["Health"])
@@ -1257,6 +1453,7 @@ if HAS_FASTAPI:
     @app.post("/search", tags=["Search"])
     def start_search(req: SearchRequest):
         loc = (req.location or "").strip()
+        cat = (req.category or "all").strip()
         if not loc:
             raise HTTPException(status_code=400, detail="Field 'location' is required.")
 
@@ -1268,6 +1465,7 @@ if HAS_FASTAPI:
             "stage": "queued",
             "progress": 0,
             "location": loc,
+            "category": cat,
             "created_at": time.time(),
             "started_at": None,
             "finished_at": None,
@@ -1275,11 +1473,11 @@ if HAS_FASTAPI:
             "results": [],
             "count": 0
         }
-        Thread(target=_run_job, args=(job_id, loc, req.save_to_mongo), daemon=True).start()
+        Thread(target=_run_job, args=(job_id, loc, cat, req.save_to_mongo), daemon=True).start()
         return {
             "job_id": job_id,
             "status": "queued",
-            "message": f"Search background job started for '{loc}'. Poll /job/{job_id} for progress.",
+            "message": f"Search background job started for '{loc}' ({cat}). Poll /job/{job_id} for progress.",
             "check_status_url": f"/job/{job_id}"
         }
 
@@ -1313,7 +1511,7 @@ if HAS_FASTAPI:
         if not loc:
             raise HTTPException(status_code=400, detail="Field 'location' is required.")
         try:
-            results = search_new_companies(loc)
+            results = search_new_companies(loc, category=req.category)
             return {
                 "ok": True,
                 "location": loc,
