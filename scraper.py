@@ -179,8 +179,8 @@ def get_candidate_urls(location: str, category: str) -> list:
 # --------------------------------------------------------------------------
 def _fetch_cf(url: str, timeout: float = 8):
     try:
-        r = c_requests.get(url, impersonate="chrome120", headers=UA_HEADERS, timeout=timeout)
-        if r.status_code >= 400 or "html" not in r.headers.get("Content-Type", "html"):
+r = c_requests.get(url, impersonate="chrome110", headers=UA_HEADERS, timeout=timeout)
+if r.status_code >= 400 or "html" not in r.headers.get("Content-Type", "html"):
             return None, None
         return BeautifulSoup(r.content, "html.parser"), r.url
     except Exception as e:
