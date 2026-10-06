@@ -2,7 +2,7 @@ flask
 gunicorn
 mysql-connector-python
 python-dotenv
-ddgs
+duckduckgo-search
 openai
 requests
 httpx
@@ -13,4 +13,3 @@ fastapi
 pydantic
 uvicorn
 curl_cffi==0.5.10
-python-dotenv
