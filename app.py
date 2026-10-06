@@ -1,6 +1,7 @@
 import os
 import json
 import asyncio
+import threading # Added for background tasks
 from bson import ObjectId
 from flask import Flask, render_template, request, jsonify, Response
 from pymongo import MongoClient, DESCENDING, ASCENDING
@@ -22,9 +23,6 @@ db = client.miky_db
 search_collection = db.search_collection
 matrix_collection = db.matrix_collection
 
-# global_collection removed as per architecture requirements
-# global_collection = db.global_collection
-
 # Helper for JSON serialization
 def serialize_doc(doc):
     if doc and '_id' in doc:
@@ -32,19 +30,8 @@ def serialize_doc(doc):
     return doc
 
 def build_filter_query(req):
-    """Build a MongoDB filter query from request query parameters.
-    
-    Supports:
-      - q: text search on 'name' field ($regex, case-insensitive)
-      - city: text search on 'location_string' field ($regex, case-insensitive)
-      - status: exact match on 'ai_status' (skip if 'all')
-      - has_email: 'true' => email exists and is non-empty, 'false' => missing/empty
-      - has_phone: 'true' => phone exists and is non-empty, 'false' => missing/empty
-      - has_website: 'true' => website exists and is non-empty
-    """
     query = {}
     
-    # Text Search (q) — searches both 'name' and 'buyer_name' fields
     q = req.args.get('q', '').strip()
     if q:
         query['$or'] = [
@@ -52,11 +39,9 @@ def build_filter_query(req):
             {'buyer_name': {'$regex': q, '$options': 'i'}}
         ]
         
-    # Location/City — searches 'location_string' and 'destination_country'
     city = req.args.get('city', '').strip()
     if city:
         if '$or' in query:
-            # Combine with existing $or using $and
             existing_or = query.pop('$or')
             query['$and'] = [
                 {'$or': existing_or},
@@ -71,28 +56,23 @@ def build_filter_query(req):
                 {'destination_country': {'$regex': city, '$options': 'i'}}
             ]
         
-    # AI Status
     status = req.args.get('status', '').strip()
     if status and status != 'all':
         query['ai_status'] = status
         
-    # Has Email — database-level filter
     has_email = req.args.get('has_email', '').strip()
     if has_email == 'true':
         query['email'] = {'$exists': True, '$nin': [None, ""]}
     elif has_email == 'false':
         query['$or'] = query.get('$or', [])
-        # Use direct filter — email missing or empty
         query['email'] = {'$in': [None, ""]}
         
-    # Has Phone — database-level filter
     has_phone = req.args.get('has_phone', '').strip()
     if has_phone == 'true':
         query['phone'] = {'$exists': True, '$nin': [None, ""]}
     elif has_phone == 'false':
         query['phone'] = {'$in': [None, ""]}
 
-    # Has Website — database-level filter
     has_website = req.args.get('has_website', '').strip()
     if has_website == 'true':
         query['website'] = {'$exists': True, '$nin': [None, ""]}
@@ -127,7 +107,6 @@ def get_search_data():
     query = build_filter_query(request)
     sort_order = get_sort_param(request)
     
-    # Pagination support
     page = int(request.args.get('page', 1))
     per_page = int(request.args.get('per_page', 100))
     skip = (page - 1) * per_page
@@ -147,7 +126,6 @@ def get_matrix_data():
     query = build_filter_query(request)
     sort_order = get_sort_param(request)
     
-    # Pagination support
     page = int(request.args.get('page', 1))
     per_page = int(request.args.get('per_page', 100))
     skip = (page - 1) * per_page
@@ -164,7 +142,6 @@ def get_matrix_data():
 
 @app.route('/api/get_matrix_stats', methods=['GET'])
 def get_matrix_stats():
-    """Returns aggregate statistics for the Matrix Hub dashboard."""
     pipeline = [
         {
             '$facet': {
@@ -224,7 +201,6 @@ def get_matrix_stats():
 
 @app.route('/api/get_search_stats', methods=['GET'])
 def get_search_stats():
-    """Returns aggregate statistics for the Discovery Search dashboard."""
     pipeline = [
         {
             '$facet': {
@@ -280,28 +256,21 @@ def migrate_to_matrix():
     
     return jsonify({"message": "Successfully migrated to matrix"})
 
-# --- EXISTING FUNCTIONALITY ---
 
-@app.route('/api/search_new', methods=['POST'])
-def api_search_new():
+# --- BACKGROUND WORKER FOR SEARCH ---
+def run_search_in_background(location, category):
+    """Runs the long scraper process in the background and saves to MongoDB."""
     try:
-        data = request.get_json(silent=True) or {}
-        location = data.get('location', '').strip()
-        category = data.get('category', 'all').strip()
-        if not location:
-            return jsonify({"error": "Location is required"}), 400
-
-        print(f"API Search request: location='{location}', category='{category}'")
+        print(f"Background Search started: location='{location}', category='{category}'")
         companies = search_new_companies(location, category=category)
+        
         if not companies:
-            return jsonify({
-                "message": f"No companies found for '{location}'. Please try a different location or category.",
-                "count": 0,
-                "total": 0
-            })
+            print(f"Background Search Finished: No companies found for '{location}'.")
+            return
 
         new_count = 0
         updated_count = 0
+        
         for comp in companies:
             c_copy = dict(comp)
             c_copy.pop('company_id', None)
@@ -344,26 +313,36 @@ def api_search_new():
                 except Exception as ins_err:
                     print("Mongo Insert Error:", ins_err)
 
-        total = len(companies)
-        if new_count > 0:
-            msg = f"Found {total} companies ({new_count} new leads added to Discovery"
-            if updated_count > 0:
-                msg += f", {updated_count} existing leads updated with verified addresses"
-            msg += ")!"
-        elif updated_count > 0:
-            msg = f"Found {total} companies (all already in database; {updated_count} updated with verified street addresses)!"
-        else:
-            msg = f"All {total} companies discovered are already saved in your database."
-
-        return jsonify({
-            "message": msg,
-            "count": new_count,
-            "updated": updated_count,
-            "total": total
-        })
+        print(f"✅ Background Search Finished for '{location}': {new_count} new, {updated_count} updated.")
+    
     except Exception as e:
-        print("api_search_new error:", e)
-        return jsonify({"error": f"Search failed: {str(e)}"}), 500
+        print(f"Background search error: {e}")
+
+
+# --- LIGHTNING-FAST API ENDPOINT ---
+@app.route('/api/search_new', methods=['POST'])
+def api_search_new():
+    """Immediately returns success to frontend, starts search in background."""
+    data = request.get_json(silent=True) or {}
+    location = data.get('location', '').strip()
+    category = data.get('category', 'all').strip()
+    
+    if not location:
+        return jsonify({"error": "Location is required"}), 400
+
+    # Start the background thread
+    thread = threading.Thread(target=run_search_in_background, args=(location, category))
+    thread.start()
+
+    # Immediately respond to the frontend to prevent Render timeouts
+    return jsonify({
+        "message": f"Search for '{location}' started in the background. It may take a few minutes. Check back soon!",
+        "count": 0,       # Set to 0 because we don't know the result yet
+        "updated": 0,
+        "total": 0,
+        "status": "processing"
+    }), 202
+
 
 @app.route('/api/enrich_one', methods=['POST'])
 def api_enrich_one():
@@ -377,7 +356,6 @@ def api_enrich_one():
     except Exception:
         return jsonify({"error": "Invalid document ID format"}), 400
 
-    # Search in matrix_collection first, fallback to search_collection
     target_col = matrix_collection
     doc = matrix_collection.find_one({"_id": obj_id})
     if not doc:
@@ -415,18 +393,12 @@ def api_enrich_one():
     if data_found:
         try:
             parsed = json.loads(data_found) if isinstance(data_found, str) else data_found
-            if parsed.get("email"):
-                update_fields["email"] = parsed["email"]
-            if parsed.get("phone"):
-                update_fields["phone"] = parsed["phone"]
-            if parsed.get("website"):
-                update_fields["website"] = parsed["website"]
-            if parsed.get("address"):
-                update_fields["address"] = parsed["address"]
-            if parsed.get("company_name_english"):
-                update_fields["company_name_english"] = parsed["company_name_english"]
-            if parsed.get("country_english"):
-                update_fields["country_english"] = parsed["country_english"]
+            if parsed.get("email"): update_fields["email"] = parsed["email"]
+            if parsed.get("phone"): update_fields["phone"] = parsed["phone"]
+            if parsed.get("website"): update_fields["website"] = parsed["website"]
+            if parsed.get("address"): update_fields["address"] = parsed["address"]
+            if parsed.get("company_name_english"): update_fields["company_name_english"] = parsed["company_name_english"]
+            if parsed.get("country_english"): update_fields["country_english"] = parsed["country_english"]
         except Exception as e:
             print("Error parsing AI response:", e)
 
@@ -463,10 +435,7 @@ def api_enrich():
                     client_ai.extract_company_data(system_prompt, c_name, comp.get('location_string', ''))
                 )
                 
-                email = None
-                phone = None
-                website = None
-                address = None
+                email, phone, website, address = None, None, None, None
                 if data_found:
                     try:
                         parsed = json.loads(data_found) if isinstance(data_found, str) else data_found
@@ -503,4 +472,3 @@ def api_enrich():
 
 if __name__ == '__main__':
     app.run(debug=True, use_reloader=False, port=5000)
-
