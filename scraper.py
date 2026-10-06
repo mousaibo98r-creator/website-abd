@@ -1,7 +1,7 @@
 """
-Aluminium profile BUYER scraper (v5 - DuckDuckGo Edition).
-Optimized for finding B2B customers (Furniture, LED, Construction, Facades).
-Uses DuckDuckGo (Free) instead of Serper (Paid), safe for Render IPs.
+Aluminium profile BUYER scraper (v6 - Category Specific & Safe DDG).
+Optimized for finding B2B customers based on specific profile types.
+Uses DuckDuckGo (Free), with crash-proof rate limiting for Render.
 """
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ from bs4 import BeautifulSoup
 from curl_cffi import requests as c_requests
 from dotenv import load_dotenv
 from openai import OpenAI
-from duckduckgo_search import DDGS # Swapped back to DDG
+from duckduckgo_search import DDGS
 
 load_dotenv()
 
@@ -29,7 +29,7 @@ load_dotenv()
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
 DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
-NOMINATIM_UA = os.getenv("NOMINATIM_UA", "aluminium-scraper/5.0 (contact: you@example.com)")
+NOMINATIM_UA = os.getenv("NOMINATIM_UA", "aluminium-scraper/6.0 (contact: you@example.com)")
 
 MAX_CANDIDATE_SITES = int(os.getenv("MAX_CANDIDATE_SITES", "30"))
 SCRAPE_WORKERS = int(os.getenv("SCRAPE_WORKERS", "6"))    
@@ -147,25 +147,52 @@ def _ai_json(system: str, user: str, max_tokens: int = 1000, attempts: int = 2) 
 
 
 # --------------------------------------------------------------------------
-# Step 1: AI generates localized keywords (Targeting BUYERS)
+# Step 1: AI generates localized keywords (Targeting SPECIFIC BUYERS)
 # --------------------------------------------------------------------------
+def _get_buyer_context(category: str) -> str:
+    """Maps the UI dropdown category to the exact buyer persona."""
+    cat = category.lower() if category else ""
+    if "led" in cat:
+        return "LED lighting manufacturers, LED strip installers, commercial lighting contractors, and architectural lighting firms"
+    elif "tile" in cat:
+        return "tile installation contractors, ceramic tile distributors, flooring contractors, and bathroom fit-out companies"
+    elif "furniture" in cat or "kitchen" in cat:
+        return "custom furniture makers, kitchen cabinet manufacturers, wardrobe installers, and commercial joinery workshops"
+    elif "shower" in cat or "glass" in cat:
+        return "shower enclosure manufacturers, glass partition installers, glazing contractors, and architectural glass companies"
+    elif "wall" in cat or "ceiling" in cat:
+        return "interior fit-out companies, drywall/gypsum contractors, suspended ceiling installers, and interior decorators"
+    elif "light" in cat or "extrusion" in cat:
+        return "exhibition stand builders, signage/advertising board makers, and custom metal fabricators"
+    else:
+        return "LED lighting companies, furniture makers, facade engineers, window/door installers, and interior fit-out firms"
+
 def _fallback_keywords(location: str, category: str) -> list:
-    return [
-        f"commercial furniture manufacturers {location}",
-        f"LED lighting installers {location}",
-        f"architectural facade contractors {location}",
-        f"interior fit out companies {location}",
-        f"custom kitchen cabinet makers {location}"
-    ]
+    cat = category.lower() if category else ""
+    if "led" in cat:
+        return [f"LED lighting manufacturers {location}", f"LED strip installation contractors {location}"]
+    elif "tile" in cat:
+        return [f"ceramic tile distributors {location}", f"flooring and tile contractors {location}"]
+    elif "furniture" in cat or "kitchen" in cat:
+        return [f"custom kitchen cabinet makers {location}", f"commercial furniture manufacturers {location}"]
+    elif "shower" in cat or "glass" in cat:
+        return [f"glass partition installers {location}", f"shower enclosure manufacturers {location}"]
+    elif "wall" in cat or "ceiling" in cat:
+        return [f"interior fit out companies {location}", f"suspended ceiling contractors {location}"]
+    elif "light" in cat or "extrusion" in cat:
+        return [f"exhibition stand builders {location}", f"signage manufacturers {location}"]
+    else:
+        return [f"interior fit out companies {location}", f"architectural facade contractors {location}"]
 
 def generate_localized_keywords(location: str, category: str) -> dict:
-    cat_text = f"specifically {category}" if category and category != "all" else "such as LED lighting companies, furniture makers, facade engineers, window/door installers, and interior fit-out firms"
+    buyer_context = _get_buyer_context(category)
+    
     prompt = f"""Target location: {location}.
-Generate 5 effective Google search queries to find companies that BUY and USE aluminium profiles ({cat_text}).
-CRITICAL: We are looking for their CUSTOMERS (the buyers), NOT the aluminium extruders/manufacturers themselves.
+Generate 5 highly effective Google search queries to find companies that BUY and USE aluminium profiles.
+Specifically, we are looking for: {buyer_context}.
+CRITICAL: We want their CUSTOMERS (the buyers/installers), NOT the aluminium extruders/manufacturers. Do NOT search for "aluminium profile manufacturer".
 Rules:
 - At least 4 queries in the NATIVE/LOCAL language of the location, 1 in English.
-- Focus on end-users: "interior contractors", "LED lighting manufacturers", "facade systems", "custom furniture makers", "glass partition installers".
 - Include the location (city or country) in each query.
 - Do NOT target directories, marketplaces or news.
 Also return the ISO 3166-1 alpha-2 country code (lowercase) and the main ISO 639-1 language code.
@@ -174,6 +201,7 @@ Return JSON ONLY: {{"gl": "xx", "hl": "xx", "keywords": ["query1", "query2", ...
     res = _ai_json("You are an expert B2B lead-generation researcher.", prompt, 500)
     kws = [k.strip() for k in (res.get("keywords") or []) if isinstance(k, str) and k.strip()]
     kws += _fallback_keywords(location, category)          
+    
     # Reduced to 5 keywords total to avoid triggering DDG rate limit
     kws = list(dict.fromkeys(kws))[:5]
 
@@ -187,22 +215,21 @@ Return JSON ONLY: {{"gl": "xx", "hl": "xx", "keywords": ["query1", "query2", ...
 
 
 # --------------------------------------------------------------------------
-# Step 2: Search via DuckDuckGo (Optimized for Render)
+# Step 2: Search via DuckDuckGo (Crash-Proof for Render)
 # --------------------------------------------------------------------------
 def _ddg_search(query: str, gl: str, hl: str) -> list:
-    """Uses DuckDuckGo HTML backend with delays to survive Render IP bans."""
+    """Uses DuckDuckGo HTML backend with safe error handling to survive Render IP bans."""
     print(f"Searching DDG: {query}")
     try:
-        # DDG regions format: "us-en", "tr-tr", "pl-pl"
         region = f"{gl}-{hl}" if gl and hl else "wt-wt"
-        
-        # We must use backend="html" because the default API aggressively blocks Render
         with DDGS(headers=REQ_HEADERS) as ddgs:
-            results = ddgs.text(query, region=region, backend="html", max_results=15)
+            # backend="html" is much safer for cloud servers
+            results = ddgs.text(query, region=region, backend="html", max_results=12)
             if results:
                 return [r.get("href") for r in results if r.get("href")]
     except Exception as e:
-        print(f"DDG error for '{query}': {e}")
+        # We catch ALL exceptions here so the whole app doesn't crash if DDG throws a 403 or RateLimit error
+        print(f"DDG Warning for '{query}': {e}. Skipping this keyword.")
     return []
 
 def get_candidate_urls(location: str, category: str):
@@ -214,8 +241,7 @@ def get_candidate_urls(location: str, category: str):
     origins: dict[str, str] = {}
     score: dict[str, float] = {}
     
-    # We CANNOT use ThreadPoolExecutor here. DDG will instantly block parallel requests from Render.
-    # We must search sequentially with a random delay.
+    # Search sequentially with a random delay.
     for pos, kw in enumerate(keywords):
         links = _ddg_search(kw, gl, hl)
         
@@ -355,14 +381,15 @@ def scrape_company_site(origin: str) -> dict:
 # Step 4: Contextual AI extraction (Targeting BUYERS)
 # --------------------------------------------------------------------------
 def extract_company(page: dict, location: str, category: str) -> dict | None:
-    cat = f"Preferred industry: {category}." if category not in ("", "all", None) else ""
+    buyer_context = _get_buyer_context(category)
+    
     prompt = f"""Analyze this website text and extract company details.
 Target location/market: {location}
-{cat}
+Target Industry Focus: {category}
 
 VERIFICATION RULES FOR BUYERS:
-1. "is_potential_buyer": true ONLY if this company operates in an industry that typically PURCHASES and USES aluminium profiles (e.g., LED lighting manufacturers, interior fit-out companies, furniture makers, construction/facade contractors, window/door installers).
-   FALSE if they are an aluminium extruder/manufacturer (they make profiles, so they are your competitor, not your customer) or if they are a directory/news site.
+1. "is_potential_buyer": true ONLY if this company operates in an industry that typically PURCHASES aluminium profiles. Based on the target industry, this company should be one of the following: {buyer_context}.
+   FALSE if they are an aluminium extruder/manufacturer (they make profiles, so they are your competitor), or if they are a directory/news site.
 2. "is_in_target_location": "yes" if the company is based in the target city/country, "no" ONLY if clearly based elsewhere, "unknown" if unclear.
 
 Return JSON ONLY:
@@ -373,11 +400,11 @@ Return JSON ONLY:
   "country": str|null,
   "is_potential_buyer": bool,
   "is_in_target_location": "yes"|"no"|"unknown",
-  "company_type": "contractor"|"furniture_maker"|"lighting"|"facade"|"other_buyer",
+  "company_type": "contractor"|"manufacturer"|"distributor"|"installer"|"other_buyer",
   "main_categories": [str],
   "description": str
 }}
-Notes: "main_categories" should list their actual business focus (e.g., "LED Lighting", "Kitchen Cabinets", "Facade Engineering").
+Notes: "main_categories" should list their actual business focus matching the target industry (e.g., "LED Lighting", "Kitchen Cabinets", "Tile Accessories", "Glass Partitions").
 
 URL: {page['url']}
 TITLE: {page['title']}
