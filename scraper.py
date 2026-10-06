@@ -1,6 +1,7 @@
 """
-Aluminium profile BUYER scraper (v4).
+Aluminium profile BUYER scraper (v5 - DuckDuckGo Edition).
 Optimized for finding B2B customers (Furniture, LED, Construction, Facades).
+Uses DuckDuckGo (Free) instead of Serper (Paid), safe for Render IPs.
 """
 from __future__ import annotations
 
@@ -9,6 +10,7 @@ import json
 import os
 import re
 import time
+import random
 from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import urljoin, urlparse
 
@@ -17,6 +19,7 @@ from bs4 import BeautifulSoup
 from curl_cffi import requests as c_requests
 from dotenv import load_dotenv
 from openai import OpenAI
+from duckduckgo_search import DDGS # Swapped back to DDG
 
 load_dotenv()
 
@@ -26,16 +29,12 @@ load_dotenv()
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
 DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
-SERPER_API_KEY = os.getenv("SERPER_API_KEY")
-NOMINATIM_UA = os.getenv("NOMINATIM_UA", "aluminium-scraper/4.0 (contact: you@example.com)")
+NOMINATIM_UA = os.getenv("NOMINATIM_UA", "aluminium-scraper/5.0 (contact: you@example.com)")
 
 MAX_CANDIDATE_SITES = int(os.getenv("MAX_CANDIDATE_SITES", "30"))
-SERPER_PAGES = int(os.getenv("SERPER_PAGES", "2"))        
 SCRAPE_WORKERS = int(os.getenv("SCRAPE_WORKERS", "6"))    
 AI_WORKERS = int(os.getenv("AI_WORKERS", "4"))
 MAX_TEXT_CHARS = int(os.getenv("MAX_TEXT_CHARS", "12000"))
-
-SERPER_URL = "https://google.serper.dev/search"
 
 client = None
 if DEEPSEEK_API_KEY and DEEPSEEK_API_KEY != "your_deepseek_api_key_here":
@@ -162,10 +161,10 @@ def _fallback_keywords(location: str, category: str) -> list:
 def generate_localized_keywords(location: str, category: str) -> dict:
     cat_text = f"specifically {category}" if category and category != "all" else "such as LED lighting companies, furniture makers, facade engineers, window/door installers, and interior fit-out firms"
     prompt = f"""Target location: {location}.
-Generate 8 effective Google search queries to find companies that BUY and USE aluminium profiles ({cat_text}).
+Generate 5 effective Google search queries to find companies that BUY and USE aluminium profiles ({cat_text}).
 CRITICAL: We are looking for their CUSTOMERS (the buyers), NOT the aluminium extruders/manufacturers themselves.
 Rules:
-- At least 5 queries in the NATIVE/LOCAL language of the location, 2 in English.
+- At least 4 queries in the NATIVE/LOCAL language of the location, 1 in English.
 - Focus on end-users: "interior contractors", "LED lighting manufacturers", "facade systems", "custom furniture makers", "glass partition installers".
 - Include the location (city or country) in each query.
 - Do NOT target directories, marketplaces or news.
@@ -175,7 +174,8 @@ Return JSON ONLY: {{"gl": "xx", "hl": "xx", "keywords": ["query1", "query2", ...
     res = _ai_json("You are an expert B2B lead-generation researcher.", prompt, 500)
     kws = [k.strip() for k in (res.get("keywords") or []) if isinstance(k, str) and k.strip()]
     kws += _fallback_keywords(location, category)          
-    kws = list(dict.fromkeys(kws))[:10]
+    # Reduced to 5 keywords total to avoid triggering DDG rate limit
+    kws = list(dict.fromkeys(kws))[:5]
 
     gl = str(res.get("gl") or "").lower()
     hl = str(res.get("hl") or "").lower()
@@ -187,56 +187,52 @@ Return JSON ONLY: {{"gl": "xx", "hl": "xx", "keywords": ["query1", "query2", ...
 
 
 # --------------------------------------------------------------------------
-# Step 2: Search via Serper.dev
+# Step 2: Search via DuckDuckGo (Optimized for Render)
 # --------------------------------------------------------------------------
-def _serper(query: str, page: int, gl, hl, location) -> list:
-    if not SERPER_API_KEY:
-        print("WARNING: SERPER_API_KEY is missing!")
-        return []
-    payload = {"q": query, "num": 10, "page": page}
-    if gl: payload["gl"] = gl
-    if hl: payload["hl"] = hl
-    if location: payload["location"] = location
-    headers = {"X-API-KEY": SERPER_API_KEY, "Content-Type": "application/json"}
-
-    for attempt in range(3):
-        try:
-            r = requests.post(SERPER_URL, headers=headers, json=payload, timeout=15)
-            if r.status_code == 400 and "location" in payload:
-                payload.pop("location")
-                continue
-            if r.status_code == 429 or r.status_code >= 500:
-                time.sleep(1.5 * (attempt + 1))
-                continue
-            if r.status_code != 200:
-                return []
-            return [it["link"] for it in r.json().get("organic", []) if it.get("link")]
-        except Exception:
-            time.sleep(1.0 * (attempt + 1))
+def _ddg_search(query: str, gl: str, hl: str) -> list:
+    """Uses DuckDuckGo HTML backend with delays to survive Render IP bans."""
+    print(f"Searching DDG: {query}")
+    try:
+        # DDG regions format: "us-en", "tr-tr", "pl-pl"
+        region = f"{gl}-{hl}" if gl and hl else "wt-wt"
+        
+        # We must use backend="html" because the default API aggressively blocks Render
+        with DDGS(headers=REQ_HEADERS) as ddgs:
+            results = ddgs.text(query, region=region, backend="html", max_results=15)
+            if results:
+                return [r.get("href") for r in results if r.get("href")]
+    except Exception as e:
+        print(f"DDG error for '{query}': {e}")
     return []
 
 def get_candidate_urls(location: str, category: str):
+    """Returns (list_of_origins, country_code_or_None)."""
     meta = generate_localized_keywords(location, category)
     keywords, gl, hl = meta["keywords"], meta["gl"], meta["hl"]
     print(f"Buyer Keywords ({gl}/{hl}): {keywords}")
 
-    tasks = [(kw, p) for kw in keywords for p in range(1, SERPER_PAGES + 1)]
-    with ThreadPoolExecutor(max_workers=4) as pool:
-        results = list(pool.map(lambda t: _serper(t[0], t[1], gl, hl, location), tasks))
-
     origins: dict[str, str] = {}
     score: dict[str, float] = {}
-    for (kw, page), links in zip(tasks, results):
+    
+    # We CANNOT use ThreadPoolExecutor here. DDG will instantly block parallel requests from Render.
+    # We must search sequentially with a random delay.
+    for pos, kw in enumerate(keywords):
+        links = _ddg_search(kw, gl, hl)
+        
         for i, link in enumerate(links):
             url = link.split("#")[0]
             if not url or url.lower().endswith(".pdf"): continue
             dom = root_domain(url)
             if not dom or dom in EXCLUDED_DOMAINS or DIRECTORY_HINT.search(dom): continue
-            pos = (page - 1) * 10 + i
-            score[dom] = score.get(dom, 0.0) + 1.0 / (pos + 3)   
+            
+            # Score based on how high it ranks
+            score[dom] = score.get(dom, 0.0) + 1.0 / ((i + 1) + 3)   
             if dom not in origins:
                 p = urlparse(url)
                 origins[dom] = f"{p.scheme or 'https'}://{p.netloc}"
+                
+        # Mandatory sleep to prevent DuckDuckGo from banning the Render IP
+        time.sleep(random.uniform(4.0, 7.0))
 
     ranked = sorted(origins, key=lambda d: score[d], reverse=True)[:MAX_CANDIDATE_SITES]
     return [origins[d] for d in ranked], gl
@@ -389,7 +385,7 @@ TEXT: {page['text']}"""
 
     data = _ai_json("You are a B2B sales data extractor finding CUSTOMERS.", prompt, 800)
     
-    # We now filter for buyers, not manufacturers
+    # Filter for buyers
     if not data.get("name") or not data.get("is_potential_buyer"):
         return None
 
