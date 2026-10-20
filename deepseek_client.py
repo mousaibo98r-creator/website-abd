@@ -251,6 +251,7 @@ class DeepSeekClient:
 
         found_emails, found_phones = set(), set()
         found_website = None
+        found_address = None
         final_json_str = None
         turn_count = 0
 
@@ -286,6 +287,8 @@ class DeepSeekClient:
                     if isinstance(result, dict) and "error" not in result:
                         found_emails.update(result.get("emails_found", []))
                         found_phones.update(result.get("phones_found", []))
+                        if result.get("address_found") and not found_address:
+                            found_address = result["address_found"]
                         if result.get("emails_found") and not found_website and result.get("url"):
                             p = urlparse(result["url"])
                             if p.scheme and p.netloc:
@@ -326,7 +329,7 @@ class DeepSeekClient:
             "email": next(iter(sorted(found_emails)), None),
             "phone": next(iter(sorted(found_phones)), None),
             "website": found_website,
-            "address": None,
+            "address": found_address,
         }
 
         if final_json_str:
@@ -354,7 +357,7 @@ class DeepSeekClient:
                     normalized["email"] = (llm_email[0] if llm_email else normalized["email"])
                     normalized["phone"] = parsed.get("phone") or normalized["phone"]
                     normalized["website"] = parsed.get("website") or found_website
-                    normalized["address"] = parsed.get("address")
+                    normalized["address"] = parsed.get("address") or found_address
                     if parsed.get("company_name_english"):
                         normalized["company_name_english"] = parsed["company_name_english"]
             except Exception as e:
@@ -422,6 +425,44 @@ class DeepSeekClient:
                 "emails_found": [], "phones_found": [], "page_text_preview": ""}
 
     async def _fetch_page(self, url, address_kw):
+        """Fetch a page; if contact data is missing, also crawl contact/impressum pages."""
+        main = await self._fetch_single(url, address_kw)
+        if "error" in main:
+            return main
+        links = main.pop("contact_links", [])
+        if main["emails_found"] and main["phones_found"] and main.get("address_found"):
+            return main
+
+        base = "{0.scheme}://{0.netloc}".format(urlparse(main["url"]))
+        for path in ("/impressum", "/kontakt", "/contact", "/contact-us", "/iletisim"):
+            links.append(base + path)
+        seen, candidates = {main["url"].rstrip("/")}, []
+        for l in links:
+            k = l.rstrip("/")
+            if k not in seen and urlparse(l).netloc == urlparse(base).netloc:
+                seen.add(k)
+                candidates.append(l)
+        candidates = candidates[:5]
+
+        subs = await asyncio.gather(*(self._fetch_single(c, address_kw) for c in candidates))
+        emails, phones = list(main["emails_found"]), list(main["phones_found"])
+        address = main.get("address_found")
+        previews = [main["page_text_preview"]]
+        for s in subs:
+            if "error" in s:
+                continue
+            emails += s["emails_found"]
+            phones += s["phones_found"]
+            address = address or s.get("address_found")
+            if s["emails_found"] or s["phones_found"] or s.get("address_found"):
+                previews.append(f"[{s['url']}] " + s["page_text_preview"])
+        main["emails_found"] = _filter_emails(emails)[:10]
+        main["phones_found"] = _clean_phones(phones)[:10]
+        main["address_found"] = address
+        main["page_text_preview"] = " | ".join(previews)[:3000]
+        return main
+
+    async def _fetch_single(self, url, address_kw):
         if not url or not url.startswith(("http://", "https://")):
             return {"error": "Invalid URL", "url": url}
         async with self._get_sem():
@@ -448,6 +489,58 @@ class DeepSeekClient:
                     if val:
                         phones_raw.append(val)
 
+                # Cloudflare-obfuscated emails
+                for el in soup.select("[data-cfemail]"):
+                    try:
+                        h = el["data-cfemail"]
+                        k = int(h[:2], 16)
+                        emails.append("".join(chr(int(h[i:i+2], 16) ^ k) for i in range(2, len(h), 2)))
+                    except Exception:
+                        pass
+
+                # schema.org JSON-LD (often has email / telephone / address)
+                address_found = None
+                def _walk(o):
+                    nonlocal address_found
+                    if isinstance(o, list):
+                        for i in o:
+                            _walk(i)
+                    elif isinstance(o, dict):
+                        if o.get("email"):
+                            emails.append(str(o["email"]).replace("mailto:", ""))
+                        if o.get("telephone"):
+                            phones_raw.append(str(o["telephone"]))
+                        a = o.get("address")
+                        if isinstance(a, dict) and not address_found:
+                            parts = [a.get(k) for k in ("streetAddress", "postalCode", "addressLocality", "addressCountry")]
+                            parts = [p if isinstance(p, str) else (p or {}).get("name") for p in parts]
+                            address_found = ", ".join(p for p in parts if p) or None
+                        elif isinstance(a, str) and not address_found:
+                            address_found = a
+                        for v in o.values():
+                            if isinstance(v, (dict, list)):
+                                _walk(v)
+                for s in soup.find_all("script", type="application/ld+json"):
+                    try:
+                        _walk(json.loads(s.string or ""))
+                    except Exception:
+                        pass
+
+                # <address> tag fallback
+                if not address_found:
+                    ad = soup.find("address")
+                    if ad:
+                        address_found = re.sub(r"\s+", " ", ad.get_text(" ")).strip()[:250] or None
+
+                # Links that look like contact / impressum pages
+                contact_links = []
+                kws = [k.lower() for k in DEFAULT_CONTACT_KW + list(address_kw)] + ["kontakt", "impressum", "iletisim", "contact"]
+                for a in soup.find_all("a", href=True):
+                    label = (a.get_text(" ") + " " + a["href"]).lower()
+                    if any(k in label for k in kws) and not a["href"].startswith(("mailto:", "tel:", "#", "javascript:")):
+                        contact_links.append(str(httpx.URL(str(resp.url)).join(a["href"])))
+                contact_links = list(dict.fromkeys(contact_links))[:5]
+
                 for tag in soup(["script", "style", "noscript"]):
                     tag.decompose()
                 text = re.sub(r'\s+', ' ', soup.get_text(separator=" ")).strip()
@@ -465,6 +558,8 @@ class DeepSeekClient:
                     "emails_found": emails[:10],
                     "phones_found": phones[:10],
                     "page_text_preview": text[:1200],
+                    "address_found": address_found,
+                    "contact_links": contact_links,
                 }
             except Exception as e:
                 return {"error": str(e) or e.__class__.__name__, "url": url}
