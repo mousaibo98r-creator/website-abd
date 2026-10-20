@@ -62,7 +62,60 @@ PHONE_PATTERNS = [
     r'(?:\+90|0)?\s?[2-5]\d{2}\s?\d{3}\s?\d{2}\s?\d{2}',
 ]
 LABELED_PHONE_RE = re.compile(
-    r'(?:tel|phone|fax|mobile|whatsapp|gsm|telefon|telefono)[\s:]+([+\d\s\-()./]{8,})', re.I)
+    r'(?<![a-z])(?:tel(?:efon|efone|efono|éfono)?|fon|phone|mobil(?:e)?|handy|gsm|whatsapp|t[eé]l[eé]phone|telefone)'
+    r'\.?\s*[:.]?\s*((?:\+|00)?\(?\d[\d\s\-()./]{6,}\d)', re.I)
+
+# "info [at] firma [dot] de", "info(at)firma.de", "info ät firma.de"
+_OBF_AT = re.compile(r'\s*[\[\(\{<]\s*(?:at|ät|ät|@)\s*[\]\)\}>]\s*', re.I)
+_OBF_DOT = re.compile(r'\s*[\[\(\{<]\s*(?:dot|punkt)\s*[\]\)\}>]\s*', re.I)
+
+_STREET_SUFFIX = (r'(?:stra(?:ß|ss)e|str\.|weg|platz|allee|gasse|ring|damm|ufer|chaussee|markt|hof|park|'
+                  r'steig|pfad|zeile|graben|brücke|center|street|st\.|road|rd\.|avenue|ave\.|boulevard|'
+                  r'calle|avenida|rue|via|viale|piazza|rua|caddesi|cad\.|sokak|sok\.|mah\.)')
+_ADDR_DE_RE = re.compile(
+    r'([A-ZÄÖÜ][\wäöüß\-]*' + _STREET_SUFFIX + r'\s?\d{1,4}\s?[a-zA-Z]?'
+    r'|[A-ZÄÖÜ][\wäöüß\-]+\s+' + _STREET_SUFFIX + r'\s?\d{1,4}\s?[a-zA-Z]?)'
+    r'\s*[,|·•\-–]?\s*(?:[A-Z]{1,2}[\s\-])?(\d{4,5})\s+'
+    r'((?:(?:Bad|Sankt|St\.|Neu|Alt|Groß|Klein)\s)?[A-ZÄÖÜİ][\wäöüßİış\-]+)',
+    re.U)
+_ADDR_POSTAL_RE = re.compile(r'(\d{4,5})\s+([A-ZÄÖÜİ][\wäöüßİış\-]{2,}(?:\s[A-ZÄÖÜİ][\wäöüßİış\-]+)?)', re.U)
+
+
+# Words that mark a "contact / about / imprint / address" link, in many languages and scripts.
+CONTACT_LINK_KWS = [
+    "contact", "kontakt", "contacto", "contato", "contatti", "contatto", "coordonn", "impressum", "imprint",
+    "iletisim", "iletişim", "bize ulaş", "adres", "address", "adresse", "anschrift", "direccion", "dirección",
+    "endereço", "indirizzo", "about", "uber-uns", "über uns", "nosotros", "sobre", "chi-siamo", "a-propos",
+    "contacts", "kontakty", "kontakte", "contactgegevens", "over-ons", "kapcsolat", "kontaktai", "kontakti",
+    "yhteystiedot", "kontaktinformation", "lien-he", "liên hệ", "hubungi", "kontak", "yetkili", "hakkimizda",
+    "hakkında", "контакт", "связ", "о-нас", "о нас", "контакти", "επικοινων", "επικοινων", "επικοινωνία",
+    "اتصل", "تواصل", "اتصال", "عن-الشركة", "من نحن", "צור קשר", "יצירת קשר",
+    "联系", "聯繫", "联络", "關於", "关于", "お問い合わせ", "お問合せ", "会社概要", "企業情報", "문의", "연락", "회사소개",
+    "ติดต่อ", "संपर्क", "संपर्क", "yhteys", "ota-yhteytt", "kapcsolat", "contact-us", "location", "locations",
+]
+_ARABIC_DIGITS = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "01234567890123456789")
+
+
+def _ascii_digits(text):
+    return text.translate(_ARABIC_DIGITS)
+
+
+def _snip(t, n=1500):
+    t = t or ""
+    return t if len(t) <= n else t[: n // 2] + " … " + t[-n // 2:]
+
+
+def _deobfuscate(text):
+    text = _OBF_AT.sub('@', text)
+    text = _OBF_DOT.sub('.', text)
+    return text
+
+
+def _find_address(text):
+    m = _ADDR_DE_RE.search(text)
+    if m:
+        return f"{m.group(1).strip()}, {m.group(2)} {m.group(3).strip()}"
+    return None
 
 DEFAULT_CONTACT_KW = ["Contact", "İletişim", "Kontakt", "Contacto", "Contato", "Impressum", "Imprint"]
 DEFAULT_ADDRESS_KW = ["Address", "Adres", "Adresse", "Dirección", "Endereço"]
@@ -159,7 +212,12 @@ class DeepSeekClient:
                 timeout=httpx.Timeout(12.0, connect=6.0),
                 follow_redirects=True,
                 headers={"User-Agent": _random_ua(),
-                         "Accept-Language": "en-US,en;q=0.9"},
+                         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                         "Accept-Language": "de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7",
+                         "Upgrade-Insecure-Requests": "1",
+                         "Sec-Fetch-Dest": "document",
+                         "Sec-Fetch-Mode": "navigate",
+                         "Sec-Fetch-Site": "none"},
             )
             self._http_loop = loop
         return self._http
@@ -363,7 +421,84 @@ class DeepSeekClient:
             except Exception as e:
                 print(f"[DeepSeekClient parse JSON] error: {e}")
 
+        try:
+            await self._enrich_from_website(normalized, address_kw, model)
+        except Exception as e:
+            print(f"[DeepSeekClient enrich] error: {e}")
+
         return json.dumps(normalized, ensure_ascii=False), turn_count
+
+    @staticmethod
+    def _normalize_url(u):
+        if not u or not isinstance(u, str):
+            return None
+        u = u.strip()
+        if not u or " " in u:
+            return None
+        if not u.startswith(("http://", "https://")):
+            u = "https://" + u
+        p = urlparse(u)
+        return f"{p.scheme}://{p.netloc}/" if "." in p.netloc else None
+
+    async def _llm_extract_from_text(self, text, model, country=""):
+        if not text:
+            return {}
+        try:
+            resp = await self.client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": (
+                        "Extract the company's own contact details from this website text. The text may be in any language "
+                        f"or script (company country: {country or 'unknown'}). "
+                        "Return JSON {\"email\":null,\"phone\":null,\"address\":null}. Use only data literally "
+                        "present in the text, never guess. address = street, postal code, city (and country if shown).")},
+                    {"role": "user", "content": text[:9000]},
+                ],
+                response_format={"type": "json_object"},
+            )
+            d = json.loads(resp.choices[0].message.content)
+            return d if isinstance(d, dict) else {}
+        except Exception as e:
+            print(f"[DeepSeekClient._llm_extract_from_text] error: {e}")
+            return {}
+
+    async def _enrich_from_website(self, normalized, address_kw, model):
+        """Deterministic fallback: crawl the site ourselves instead of relying on the model's tool choices."""
+        site = self._normalize_url(normalized.get("website"))
+        if not site:
+            return
+        if normalized.get("email") and normalized.get("phone") and normalized.get("address"):
+            return
+        extra = await self._fetch_page(site, address_kw)
+        if "error" in extra:
+            normalized["fetch_error"] = extra["error"]
+            print(f"[DeepSeekClient._enrich_from_website] {site}: {extra['error']}")
+            return
+        emails = set(normalized.get("emails_found") or []) | set(extra.get("emails_found") or [])
+        phones = set(normalized.get("phones_found") or []) | set(extra.get("phones_found") or [])
+        normalized["emails_found"] = sorted(emails)
+        normalized["phones_found"] = sorted(phones)
+        normalized["email"] = normalized.get("email") or next(iter(sorted(emails)), None)
+        normalized["phone"] = normalized.get("phone") or next(iter(sorted(phones)), None)
+        normalized["address"] = normalized.get("address") or extra.get("address_found")
+
+        if not (normalized["email"] and normalized["phone"] and normalized["address"]):
+            text = (extra.get("contact_text") or "") + " | " + _snip(extra.get("text_full", ""), 2500)
+            got = await self._llm_extract_from_text(text, model, normalized.get("country_english") or "")
+            low = text.lower()
+            em = _filter_emails([got["email"]]) if got.get("email") else []
+            if not normalized["email"] and em and em[0] in low:
+                normalized["email"] = em[0]
+                normalized["emails_found"] = sorted(set(normalized["emails_found"]) | {em[0]})
+            ph = got.get("phone")
+            if not normalized["phone"] and ph and re.sub(r"\D", "", str(ph))[-6:] in re.sub(r"\D", "", text):
+                normalized["phone"] = str(ph)
+                normalized["phones_found"] = sorted(set(normalized["phones_found"]) | {str(ph)})
+            ad = got.get("address")
+            if not normalized["address"] and isinstance(ad, str) and len(ad.strip()) >= 8:
+                toks = re.findall(r"\w+", ad.lower())
+                if toks and sum(t in low for t in toks) / len(toks) >= 0.7:
+                    normalized["address"] = ad.strip()
 
     def _ddgs_sync(self, query, max_results):
         # Newer ddgs picks backends itself; older duckduckgo_search needs a fallback.
@@ -372,7 +507,26 @@ class DeepSeekClient:
         except TypeError:
             return list(DDGS().text(query, max_results=max_results))
 
+    async def _serper_search(self, query, max_results=8):
+        key = os.getenv("SERPER_API_KEY")
+        if not key or not query:
+            return []
+        try:
+            http = await self._get_http()
+            r = await http.post("https://google.serper.dev/search",
+                                headers={"X-API-KEY": key, "Content-Type": "application/json"},
+                                json={"q": query, "num": max_results})
+            r.raise_for_status()
+            return [{"href": o.get("link", ""), "title": o.get("title", ""), "body": o.get("snippet", "")}
+                    for o in r.json().get("organic", [])]
+        except Exception as e:
+            print(f"[DeepSeekClient._serper_search] error: {e}")
+            return []
+
     async def _run_ddgs_search(self, query, max_results=8):
+        res = await self._serper_search(query, max_results)
+        if res:
+            return res
         if not DDGS or not query:
             return []
         loop = asyncio.get_running_loop()
@@ -419,22 +573,47 @@ class DeepSeekClient:
         for _ in range(max_retries + 1):
             last = await self._fetch_page(url, address_kw)
             if "error" not in last:
+                last.pop("text_full", None)
                 return last
             await asyncio.sleep(0.5)
         return {"error": last.get("error", "Failed to fetch page"), "url": url,
                 "emails_found": [], "phones_found": [], "page_text_preview": ""}
 
+    @staticmethod
+    def _url_variants(url):
+        p = urlparse(url)
+        if not p.netloc:
+            return [url]
+        host = p.netloc
+        alt = host[4:] if host.startswith("www.") else "www." + host
+        out = [url]
+        for scheme, h in ((p.scheme, alt), ("http" if p.scheme == "https" else "https", host)):
+            out.append(p._replace(scheme=scheme, netloc=h).geturl())
+        return out
+
     async def _fetch_page(self, url, address_kw):
-        """Fetch a page; if contact data is missing, also crawl contact/impressum pages."""
-        main = await self._fetch_single(url, address_kw)
+        """Fetch a page (trying www/http variants); then crawl contact/about pages for the rest."""
+        main = None
+        for u in self._url_variants(url):
+            main = await self._fetch_single(u, address_kw)
+            if "error" not in main:
+                break
         if "error" in main:
             return main
         links = main.pop("contact_links", [])
-        if main["emails_found"] and main["phones_found"] and main.get("address_found"):
+        discovered = {l.rstrip("/") for l in links}
+        base = "{0.scheme}://{0.netloc}".format(urlparse(main["url"]))
+        contact_text = [f"[{main['url']}] " + _snip(main.get("text_full", ""), 1500)]
+        complete = main["emails_found"] and main["phones_found"] and main.get("address_found")
+        if complete:
+            main["contact_text"] = " | ".join(contact_text)[:4000]
             return main
 
-        base = "{0.scheme}://{0.netloc}".format(urlparse(main["url"]))
-        for path in ("/impressum", "/kontakt", "/contact", "/contact-us", "/iletisim"):
+        for path in ("/impressum", "/kontakt", "/contact", "/contact-us", "/contacts", "/contactus",
+                     "/iletisim", "/impressum.htm", "/kontakt.htm", "/impressum.html", "/kontakt.html",
+                     "/impressum.php", "/kontakt.php", "/contact.html", "/contact.php", "/contact-us.html",
+                     "/contacto", "/contatti", "/contato", "/kontakty", "/about", "/about-us",
+                     "/en/contact", "/en/contact-us", "/ar/contact", "/company"):
             links.append(base + path)
         seen, candidates = {main["url"].rstrip("/")}, []
         for l in links:
@@ -442,24 +621,28 @@ class DeepSeekClient:
             if k not in seen and urlparse(l).netloc == urlparse(base).netloc:
                 seen.add(k)
                 candidates.append(l)
-        candidates = candidates[:5]
+        candidates = candidates[:12]
 
         subs = await asyncio.gather(*(self._fetch_single(c, address_kw) for c in candidates))
         emails, phones = list(main["emails_found"]), list(main["phones_found"])
         address = main.get("address_found")
         previews = [main["page_text_preview"]]
-        for s in subs:
+        for c, s in zip(candidates, subs):
             if "error" in s:
                 continue
+            has_data = s["emails_found"] or s["phones_found"] or s.get("address_found")
             emails += s["emails_found"]
             phones += s["phones_found"]
             address = address or s.get("address_found")
-            if s["emails_found"] or s["phones_found"] or s.get("address_found"):
+            if has_data:
                 previews.append(f"[{s['url']}] " + s["page_text_preview"])
+            if has_data or c.rstrip("/") in discovered:
+                contact_text.append(f"[{s['url']}] " + _snip(s.get("text_full", ""), 1500))
         main["emails_found"] = _filter_emails(emails)[:10]
         main["phones_found"] = _clean_phones(phones)[:10]
         main["address_found"] = address
         main["page_text_preview"] = " | ".join(previews)[:3000]
+        main["contact_text"] = " | ".join(contact_text)[:6000]
         return main
 
     async def _fetch_single(self, url, address_kw):
@@ -534,19 +717,22 @@ class DeepSeekClient:
 
                 # Links that look like contact / impressum pages
                 contact_links = []
-                kws = [k.lower() for k in DEFAULT_CONTACT_KW + list(address_kw)] + ["kontakt", "impressum", "iletisim", "contact"]
+                kws = [k.lower() for k in DEFAULT_CONTACT_KW + list(address_kw)] + CONTACT_LINK_KWS
                 for a in soup.find_all("a", href=True):
                     label = (a.get_text(" ") + " " + a["href"]).lower()
                     if any(k in label for k in kws) and not a["href"].startswith(("mailto:", "tel:", "#", "javascript:")):
                         contact_links.append(str(httpx.URL(str(resp.url)).join(a["href"])))
-                contact_links = list(dict.fromkeys(contact_links))[:5]
+                contact_links = list(dict.fromkeys(contact_links))[:6]
 
                 for tag in soup(["script", "style", "noscript"]):
                     tag.decompose()
                 text = re.sub(r'\s+', ' ', soup.get_text(separator=" ")).strip()
 
+                text = _deobfuscate(_ascii_digits(text))
                 emails += EMAIL_RE.findall(text)
                 emails = _filter_emails(emails)
+                if not address_found:
+                    address_found = _find_address(text)
 
                 phones_raw += LABELED_PHONE_RE.findall(text)
                 for pat in PHONE_PATTERNS:
@@ -558,6 +744,7 @@ class DeepSeekClient:
                     "emails_found": emails[:10],
                     "phones_found": phones[:10],
                     "page_text_preview": text[:1200],
+                    "text_full": _snip(text, 6000),
                     "address_found": address_found,
                     "contact_links": contact_links,
                 }
