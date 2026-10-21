@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Matrix Hub — MIKY Intelligence</title>
     <meta name="description" content="Manage, enrich, and track company intelligence data with AI-powered enrichment.">
     <script src="https://cdn.tailwindcss.com"></script>
@@ -20,110 +20,163 @@
         }
     </script>
     <style>
-        /* Leaflet popup dark override */
+        /* Leaflet popup override */
         .leaflet-popup-content-wrapper { border-radius: 10px !important; box-shadow: 0 4px 15px rgba(0,0,0,0.15) !important; }
         .leaflet-popup-content { margin: 10px 14px !important; font-family: 'Inter', sans-serif !important; font-size: 0.85rem !important; }
         .marker-pending { filter: hue-rotate(30deg) saturate(1.4); }
         .marker-completed { filter: hue-rotate(120deg) saturate(1.4) brightness(1.1); }
         .marker-scraped { filter: hue-rotate(180deg) saturate(1.4) brightness(1.1); }
         /* Custom scrollbar */
-        .scroll-panel::-webkit-scrollbar { width: 5px; }
+        .scroll-panel::-webkit-scrollbar { width: 5px; height: 5px; }
         .scroll-panel::-webkit-scrollbar-track { background: transparent; }
         .scroll-panel::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
         .scroll-panel::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-        /* Card enter animation */
-        @keyframes fadeSlideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .card-animate { animation: fadeSlideIn 0.3s ease-out both; }
+        /* Row enter animation */
+        @keyframes fadeSlideIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+        .card-animate { animation: fadeSlideIn 0.22s ease-out both; }
         /* Modal animation */
         .modal-bg { transition: opacity 0.25s ease; }
         .modal-panel { transition: opacity 0.25s ease, transform 0.25s ease; }
         /* Spinner */
         @keyframes spin { to { transform: rotate(360deg); } }
         .spinner { animation: spin 0.7s linear infinite; }
+        .h-dvh-screen { height: 100vh; height: 100dvh; }
     </style>
 </head>
-<body class="bg-slate-50 font-sans text-slate-800 h-screen flex flex-col overflow-hidden antialiased">
+<body class="bg-slate-50 font-sans text-slate-800 h-dvh-screen flex flex-col overflow-hidden antialiased">
 
     <!-- ===== NAVIGATION ===== -->
-    <nav class="bg-white border-b border-slate-200 px-6 flex items-center h-14 shrink-0 shadow-sm">
-        <div class="flex items-center gap-1.5 mr-8">
-            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center">
-                <span class="text-white text-sm font-bold">M</span>
+    <nav class="bg-white border-b border-slate-200 px-3 sm:px-6 flex items-center justify-between sm:justify-start h-12 sm:h-14 shrink-0 shadow-sm z-20">
+        <div class="flex items-center gap-1.5 sm:mr-8">
+            <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shrink-0">
+                <span class="text-white text-xs sm:text-sm font-bold">M</span>
             </div>
             <span class="font-bold text-slate-800 text-sm tracking-tight">MIKY</span>
         </div>
-        <div class="flex gap-1">
-            <a href="/search" class="px-4 py-2 rounded-lg text-sm font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors">
+        <div class="flex gap-1 overflow-x-auto">
+            <a href="/search" class="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors whitespace-nowrap">
                 🔍 Discovery Search
             </a>
-            <a href="/matrix" class="px-4 py-2 rounded-lg text-sm font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 transition-colors">
+            <a href="/matrix" class="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 transition-colors whitespace-nowrap">
                 📊 Matrix Hub
             </a>
         </div>
     </nav>
 
     <!-- ===== PAGE HEADER ===== -->
-    <div class="bg-white border-b border-slate-200 px-6 py-4 shrink-0">
-        <div class="flex items-center justify-between">
+    <div class="bg-white border-b border-slate-200 px-3 sm:px-6 py-2.5 sm:py-3.5 shrink-0">
+        <div class="flex items-center justify-between flex-wrap gap-2">
             <div>
-                <h1 class="text-xl font-bold text-slate-900 flex items-center gap-2">
+                <h1 class="text-base sm:text-xl font-bold text-slate-900 flex items-center gap-2">
                     Matrix Hub
                     <span id="resultBadge" class="text-xs font-bold bg-indigo-100 text-indigo-700 px-2.5 py-0.5 rounded-full">0</span>
                 </h1>
-                <p class="text-sm text-slate-500 mt-0.5">AI-enriched company intelligence database</p>
+                <p class="text-xs sm:text-sm text-slate-500 hidden sm:block mt-0.5">AI-enriched company intelligence database</p>
             </div>
-            <div class="flex items-center gap-3">
-                <div id="enrichStatus" class="text-sm text-slate-500 flex items-center gap-2"></div>
-                <button id="enrichBtn" onclick="startEnrich()" class="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white px-5 py-2.5 rounded-lg text-sm font-semibold shadow-sm hover:shadow-md transition-all flex items-center gap-2">
+            <div class="flex items-center gap-2 sm:gap-3 ml-auto">
+                <div id="enrichStatus" class="text-xs sm:text-sm text-slate-500 flex items-center gap-1.5"></div>
+                <button id="enrichBtn" onclick="startEnrich()" class="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-semibold shadow-sm hover:shadow-md transition-all flex items-center gap-1.5 whitespace-nowrap">
                     ✨ Run AI Enrichment
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- ===== STATS ROW ===== -->
-    <div class="bg-white border-b border-slate-200 px-6 py-3 shrink-0">
-        <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
-            <div class="bg-slate-50 rounded-xl px-4 py-3 border border-slate-100">
-                <div id="statTotal" class="text-2xl font-extrabold text-indigo-600">—</div>
-                <div class="text-xs font-medium text-slate-500 mt-0.5">Total Companies</div>
+    <!-- ===== STATS ROW (Scrollable strip on phone, 7-col grid on desktop) ===== -->
+    <div class="bg-white border-b border-slate-200 px-3 sm:px-6 py-2 sm:py-3 shrink-0">
+        <div class="flex lg:grid lg:grid-cols-7 gap-2 sm:gap-3 overflow-x-auto scroll-panel pb-1 lg:pb-0">
+            <div class="bg-slate-50 rounded-lg sm:rounded-xl px-3 sm:px-4 py-1.5 sm:py-2.5 border border-slate-100 shrink-0 min-w-[95px] sm:min-w-[110px] lg:min-w-0">
+                <div id="statTotal" class="text-base sm:text-2xl font-extrabold text-indigo-600 leading-tight">—</div>
+                <div class="text-[10px] sm:text-xs font-medium text-slate-500 truncate">Total Companies</div>
             </div>
-            <div class="bg-slate-50 rounded-xl px-4 py-3 border border-slate-100">
-                <div id="statEmail" class="text-2xl font-extrabold text-emerald-600">—</div>
-                <div class="text-xs font-medium text-slate-500 mt-0.5">Emails Found</div>
+            <div class="bg-slate-50 rounded-lg sm:rounded-xl px-3 sm:px-4 py-1.5 sm:py-2.5 border border-slate-100 shrink-0 min-w-[85px] sm:min-w-[105px] lg:min-w-0">
+                <div id="statEmail" class="text-base sm:text-2xl font-extrabold text-emerald-600 leading-tight">—</div>
+                <div class="text-[10px] sm:text-xs font-medium text-slate-500 truncate">Emails Found</div>
             </div>
-            <div class="bg-slate-50 rounded-xl px-4 py-3 border border-slate-100">
-                <div id="statPhone" class="text-2xl font-extrabold text-blue-600">—</div>
-                <div class="text-xs font-medium text-slate-500 mt-0.5">Phones Found</div>
+            <div class="bg-slate-50 rounded-lg sm:rounded-xl px-3 sm:px-4 py-1.5 sm:py-2.5 border border-slate-100 shrink-0 min-w-[85px] sm:min-w-[105px] lg:min-w-0">
+                <div id="statPhone" class="text-base sm:text-2xl font-extrabold text-blue-600 leading-tight">—</div>
+                <div class="text-[10px] sm:text-xs font-medium text-slate-500 truncate">Phones Found</div>
             </div>
-            <div class="bg-slate-50 rounded-xl px-4 py-3 border border-slate-100">
-                <div id="statWebsite" class="text-2xl font-extrabold text-purple-600">—</div>
-                <div class="text-xs font-medium text-slate-500 mt-0.5">Websites Found</div>
+            <div class="bg-slate-50 rounded-lg sm:rounded-xl px-3 sm:px-4 py-1.5 sm:py-2.5 border border-slate-100 shrink-0 min-w-[90px] sm:min-w-[105px] lg:min-w-0">
+                <div id="statWebsite" class="text-base sm:text-2xl font-extrabold text-purple-600 leading-tight">—</div>
+                <div class="text-[10px] sm:text-xs font-medium text-slate-500 truncate">Websites Found</div>
             </div>
-            <div class="bg-slate-50 rounded-xl px-4 py-3 border border-slate-100">
-                <div id="statPending" class="text-2xl font-extrabold text-amber-500">—</div>
-                <div class="text-xs font-medium text-slate-500 mt-0.5">Pending</div>
+            <div class="bg-slate-50 rounded-lg sm:rounded-xl px-3 sm:px-4 py-1.5 sm:py-2.5 border border-slate-100 shrink-0 min-w-[75px] sm:min-w-[95px] lg:min-w-0">
+                <div id="statPending" class="text-base sm:text-2xl font-extrabold text-amber-500 leading-tight">—</div>
+                <div class="text-[10px] sm:text-xs font-medium text-slate-500 truncate">Pending</div>
             </div>
-            <div class="bg-slate-50 rounded-xl px-4 py-3 border border-slate-100">
-                <div id="statCompleted" class="text-2xl font-extrabold text-emerald-500">—</div>
-                <div class="text-xs font-medium text-slate-500 mt-0.5">Completed</div>
+            <div class="bg-slate-50 rounded-lg sm:rounded-xl px-3 sm:px-4 py-1.5 sm:py-2.5 border border-slate-100 shrink-0 min-w-[80px] sm:min-w-[95px] lg:min-w-0">
+                <div id="statCompleted" class="text-base sm:text-2xl font-extrabold text-emerald-500 leading-tight">—</div>
+                <div class="text-[10px] sm:text-xs font-medium text-slate-500 truncate">Completed</div>
             </div>
-            <div class="bg-slate-50 rounded-xl px-4 py-3 border border-slate-100">
-                <div id="statScraped" class="text-2xl font-extrabold text-cyan-500">—</div>
-                <div class="text-xs font-medium text-slate-500 mt-0.5">Scraped</div>
+            <div class="bg-slate-50 rounded-lg sm:rounded-xl px-3 sm:px-4 py-1.5 sm:py-2.5 border border-slate-100 shrink-0 min-w-[75px] sm:min-w-[95px] lg:min-w-0">
+                <div id="statScraped" class="text-base sm:text-2xl font-extrabold text-cyan-500 leading-tight">—</div>
+                <div class="text-[10px] sm:text-xs font-medium text-slate-500 truncate">Scraped</div>
             </div>
         </div>
     </div>
 
     <!-- ===== FILTER BAR ===== -->
-    <div class="bg-white border-b border-slate-200 px-6 py-3 shrink-0">
-        <div class="flex flex-wrap items-center gap-2.5">
+    <div class="bg-white border-b border-slate-200 px-3 sm:px-6 py-2.5 shrink-0">
+        <!-- Mobile Quick Bar -->
+        <div class="flex items-center gap-2 lg:hidden">
+            <input type="text" id="filterQMobile" placeholder="Search company name..."
+                class="flex-1 min-w-0 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300">
+            <button onclick="toggleMobileSection('filterDrawer')" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1 shrink-0">
+                ⚙️ Filters
+            </button>
+            <button onclick="resetAllFilters()" class="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-lg text-xs font-semibold shrink-0" title="Reset">
+                ↺
+            </button>
+        </div>
+
+        <!-- Full Filter Bar -->
+        <div id="filterDrawer" class="hidden lg:flex flex-wrap items-center gap-2 mt-2.5 lg:mt-0 pt-2.5 lg:pt-0 border-t lg:border-t-0 border-slate-100">
             <input type="text" id="filterQ" placeholder="Search company name..."
-                class="px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 transition w-44 placeholder:text-slate-400">
-            <input type="text" id="filterCity" placeholder="Filter by city / country..."
-                class="px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 transition w-44 placeholder:text-slate-400">
+                class="hidden lg:block px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 transition w-40 placeholder:text-slate-400">
             
-            <select id="filterCategory" class="px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 transition text-slate-600 cursor-pointer">
+            <!-- Country Filter Dropdown -->
+            <select id="filterCountry" class="w-[calc(50%-4px)] sm:w-auto lg:w-36 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 text-slate-600 cursor-pointer">
+                <option value="">🌍 Country: All</option>
+                <option value="Georgia">Georgia</option>
+                <option value="Germany">Germany</option>
+                <option value="Poland">Poland</option>
+                <option value="Turkey">Turkey</option>
+                <option value="Kosovo">Kosovo</option>
+                <option value="Albania">Albania</option>
+                <option value="Serbia">Serbia</option>
+                <option value="Bosnia">Bosnia</option>
+                <option value="Croatia">Croatia</option>
+                <option value="Romania">Romania</option>
+                <option value="Bulgaria">Bulgaria</option>
+                <option value="Greece">Greece</option>
+                <option value="Italy">Italy</option>
+                <option value="Spain">Spain</option>
+                <option value="France">France</option>
+                <option value="United Kingdom">United Kingdom</option>
+                <option value="Netherlands">Netherlands</option>
+                <option value="Belgium">Belgium</option>
+                <option value="Austria">Austria</option>
+                <option value="Switzerland">Switzerland</option>
+                <option value="Czech Republic">Czech Republic</option>
+                <option value="Hungary">Hungary</option>
+                <option value="Slovakia">Slovakia</option>
+                <option value="UAE">UAE</option>
+                <option value="Saudi Arabia">Saudi Arabia</option>
+                <option value="Qatar">Qatar</option>
+                <option value="Kuwait">Kuwait</option>
+                <option value="Jordan">Jordan</option>
+                <option value="Egypt">Egypt</option>
+                <option value="Morocco">Morocco</option>
+                <option value="United States">United States</option>
+                <option value="Canada">Canada</option>
+            </select>
+
+            <!-- City Filter -->
+            <input type="text" id="filterCity" placeholder="Filter by city..."
+                class="w-[calc(50%-4px)] sm:w-36 lg:w-36 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 placeholder:text-slate-400">
+            
+            <select id="filterCategory" class="w-[calc(50%-4px)] sm:w-auto px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 text-slate-600 cursor-pointer">
                 <option value="all">Category: All</option>
                 <option value="LED">💡 LED Profile</option>
                 <option value="Tile">🔲 Tile Trim</option>
@@ -133,33 +186,34 @@
                 <option value="Extrusion">⚙️ Extrusion</option>
             </select>
 
-            <select id="filterStatus" class="px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 transition text-slate-600 cursor-pointer">
+            <select id="filterStatus" class="w-[calc(50%-4px)] sm:w-auto px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 text-slate-600 cursor-pointer">
                 <option value="all">Status: All</option>
                 <option value="pending">⏳ Pending</option>
                 <option value="completed">✅ Completed</option>
                 <option value="scraped">🔍 Scraped</option>
             </select>
-            <select id="filterEmail" class="px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 transition text-slate-600 cursor-pointer">
+
+            <select id="filterEmail" class="w-[calc(50%-4px)] sm:w-auto px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 text-slate-600 cursor-pointer">
                 <option value="">Email: All</option>
                 <option value="true">📧 Has Email</option>
                 <option value="false">❌ No Email</option>
             </select>
-            <select id="filterPhone" class="px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 transition text-slate-600 cursor-pointer">
+            <select id="filterPhone" class="w-[calc(50%-4px)] sm:w-auto px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 text-slate-600 cursor-pointer">
                 <option value="">Phone: All</option>
                 <option value="true">📞 Has Phone</option>
                 <option value="false">❌ No Phone</option>
             </select>
-            <select id="filterWebsite" class="px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 transition text-slate-600 cursor-pointer">
+            <select id="filterWebsite" class="w-[calc(50%-4px)] sm:w-auto px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 text-slate-600 cursor-pointer">
                 <option value="">Website: All</option>
                 <option value="true">🌐 Has Website</option>
                 <option value="false">❌ No Website</option>
             </select>
-            <select id="filterSort" class="px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 transition text-slate-600 cursor-pointer">
+            <select id="filterSort" class="w-[calc(50%-4px)] sm:w-auto px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 text-slate-600 cursor-pointer">
                 <option value="newest">Newest First</option>
                 <option value="oldest">Oldest First</option>
             </select>
 
-            <button id="resetFiltersBtn" title="Reset all filters" class="px-3 py-2 text-xs font-semibold text-slate-500 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">
+            <button id="resetFiltersBtn" onclick="resetAllFilters()" title="Reset all filters" class="hidden lg:inline-flex px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">
                 ↺ Reset
             </button>
 
@@ -167,30 +221,43 @@
         </div>
     </div>
 
+    <!-- ===== MOBILE VIEW SWITCHER (List vs Map) ===== -->
+    <div class="flex lg:hidden bg-slate-100 border-b border-slate-200 p-1.5 gap-1.5 shrink-0">
+        <button id="mobileTabList" onclick="switchMobileView('list')" class="flex-1 py-1.5 rounded-lg text-xs font-bold bg-white text-indigo-700 shadow-sm transition-all flex items-center justify-center gap-1.5">
+            📋 Company List
+        </button>
+        <button id="mobileTabMap" onclick="switchMobileView('map')" class="flex-1 py-1.5 rounded-lg text-xs font-bold text-slate-600 hover:text-slate-900 transition-all flex items-center justify-center gap-1.5">
+            🗺️ Interactive Map
+        </button>
+    </div>
+
     <!-- ===== MAIN CONTENT: Split View ===== -->
-    <div class="flex flex-1 overflow-hidden min-h-0">
-        <!-- Card List Panel -->
-        <div class="flex-1 overflow-y-auto scroll-panel p-4 bg-slate-50" id="listPanel">
-            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3" id="cardGrid">
-                <!-- Cards injected here -->
+    <div class="flex flex-1 overflow-hidden min-h-0 relative">
+        <!-- Horizontal Line List Panel -->
+        <div class="w-full lg:flex-1 overflow-y-auto scroll-panel p-2.5 sm:p-4 bg-slate-50" id="listPanel">
+            <div class="flex flex-col gap-2" id="cardGrid">
+                <!-- Line rows injected here -->
             </div>
             <!-- Pagination -->
             <div id="paginationBar" class="flex items-center justify-center gap-2 mt-6 mb-4 hidden">
-                <button onclick="goPage('prev')" id="prevBtn" class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition">← Prev</button>
-                <span id="pageLabel" class="text-sm font-medium text-slate-500 px-2">Page 1</span>
-                <button onclick="goPage('next')" id="nextBtn" class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition">Next →</button>
+                <button onclick="goPage('prev')" id="prevBtn" class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs sm:text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition">← Prev</button>
+                <span id="pageLabel" class="text-xs sm:text-sm font-medium text-slate-500 px-2">Page 1</span>
+                <button onclick="goPage('next')" id="nextBtn" class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs sm:text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition">Next →</button>
             </div>
         </div>
         <!-- Map Panel -->
-        <div class="flex-1 border-l border-slate-200 relative hidden lg:block">
+        <div id="mapPanel" class="w-full lg:flex-1 h-full border-l border-slate-200 relative hidden lg:block">
             <div id="mainMap" class="w-full h-full"></div>
+            <button onclick="switchMobileView('list')" class="lg:hidden absolute bottom-5 left-1/2 -translate-x-1/2 z-[1000] bg-slate-900/90 text-white px-4 py-2 rounded-full text-xs font-bold shadow-lg backdrop-blur-sm flex items-center gap-1.5">
+                📋 Back to List
+            </button>
         </div>
     </div>
 
     <!-- ===== MODAL ===== -->
-    <div id="companyModal" class="fixed inset-0 z-[9999] flex items-center justify-center p-4 hidden" onclick="closeModal(event)">
+    <div id="companyModal" class="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4 hidden" onclick="closeModal(event)">
         <div class="absolute inset-0 bg-black/50 backdrop-blur-sm modal-bg"></div>
-        <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto modal-panel z-10" onclick="event.stopPropagation()">
+        <div class="relative bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-lg max-h-[88vh] sm:max-h-[85vh] overflow-y-auto modal-panel z-10" onclick="event.stopPropagation()">
             <!-- Close -->
             <button onclick="closeModal(event)" class="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-100 hover:bg-red-50 hover:text-red-500 flex items-center justify-center text-slate-400 text-lg transition-colors z-20">&times;</button>
             <!-- Header -->
@@ -200,15 +267,19 @@
                     <p id="modalLocation" class="text-sm text-slate-500 mt-1">📍 Location</p>
                     <span id="modalStatusBadge" class="inline-block mt-2 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider"></span>
                 </div>
-                <button onclick="enrichSingleCompany(event, currentModalId)" id="modalEnrichBtn" class="px-3 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white rounded-lg text-xs font-semibold shadow hover:shadow-md transition flex items-center gap-1.5 whitespace-nowrap">
+                <button onclick="enrichSingleCompany(event, currentModalId)" id="modalEnrichBtn" class="mr-8 px-3 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white rounded-lg text-xs font-semibold shadow hover:shadow-md transition flex items-center gap-1.5 whitespace-nowrap shrink-0">
                     ✨ AI Enrich
                 </button>
             </div>
             <!-- Body -->
             <div class="px-6 py-4 space-y-4">
                 <div>
+                    <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Categories / Products</div>
+                    <div id="modalCategories" class="text-sm text-slate-700 flex flex-wrap gap-1.5"><span class="italic text-slate-400">Not Available</span></div>
+                </div>
+                <div>
                     <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Email</div>
-                    <div id="modalEmail" class="text-sm text-slate-700"><span class="italic text-slate-400">Not Available</span></div>
+                    <div id="modalEmail" class="text-sm text-slate-700 break-all"><span class="italic text-slate-400">Not Available</span></div>
                 </div>
                 <div>
                     <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Phone</div>
@@ -216,7 +287,7 @@
                 </div>
                 <div>
                     <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Website</div>
-                    <div id="modalWebsite" class="text-sm text-slate-700"><span class="italic text-slate-400">Not Available</span></div>
+                    <div id="modalWebsite" class="text-sm text-slate-700 break-all"><span class="italic text-slate-400">Not Available</span></div>
                 </div>
                 <div>
                     <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Address</div>
@@ -232,7 +303,7 @@
 
     <script>
     /* ==============================================
-       Matrix Hub — Frontend Logic (Tailwind + Server-Side)
+       Matrix Hub — Frontend Logic (Line View + Country Filter + Mobile)
        ============================================== */
 
     let map = null;
@@ -244,6 +315,47 @@
     let currentPage = 1;
     let totalRecords = 0;
     const PER_PAGE = 100;
+
+    function toggleMobileSection(id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.classList.toggle('hidden');
+        if (map) setTimeout(() => map.invalidateSize(), 150);
+    }
+
+    function switchMobileView(view) {
+        const listPanel = document.getElementById('listPanel');
+        const mapPanel = document.getElementById('mapPanel');
+        const tabList = document.getElementById('mobileTabList');
+        const tabMap = document.getElementById('mobileTabMap');
+
+        if (window.innerWidth >= 1024) return;
+
+        if (view === 'map') {
+            listPanel?.classList.add('hidden');
+            mapPanel?.classList.remove('hidden');
+            tabMap?.classList.add('bg-white', 'text-indigo-700', 'shadow-sm');
+            tabMap?.classList.remove('text-slate-600');
+            tabList?.classList.remove('bg-white', 'text-indigo-700', 'shadow-sm');
+            tabList?.classList.add('text-slate-600');
+            setTimeout(() => { if (map) map.invalidateSize(); }, 100);
+        } else {
+            mapPanel?.classList.add('hidden');
+            listPanel?.classList.remove('hidden');
+            tabList?.classList.add('bg-white', 'text-indigo-700', 'shadow-sm');
+            tabList?.classList.remove('text-slate-600');
+            tabMap?.classList.remove('bg-white', 'text-indigo-700', 'shadow-sm');
+            tabMap?.classList.add('text-slate-600');
+        }
+    }
+
+    window.addEventListener('resize', () => {
+        if (window.innerWidth >= 1024) {
+            document.getElementById('listPanel')?.classList.remove('hidden');
+            document.getElementById('mapPanel')?.classList.remove('hidden');
+            if (map) map.invalidateSize();
+        }
+    });
 
     // ---------- Map ----------
     function initMap() {
@@ -257,6 +369,57 @@
             markersGroup = L.layerGroup().addTo(map);
             console.log('Map initialized');
         } catch (e) { console.error('Map init error:', e); }
+    }
+
+    const KNOWN_COORDS = {
+        'georgia': [41.7151, 44.8271], 'tbilisi': [41.7151, 44.8271], 'batumi': [41.6168, 41.6367],
+        'poland': [51.9194, 19.1451], 'polska': [51.9194, 19.1451],
+        'warsaw': [52.2297, 21.0122], 'krakow': [50.0647, 19.9450], 'wroclaw': [51.1079, 17.0385],
+        'germany': [51.1657, 10.4515], 'deutschland': [51.1657, 10.4515],
+        'berlin': [52.5200, 13.4050], 'munich': [48.1351, 11.5820], 'frankfurt': [50.1109, 8.6821],
+        'turkey': [38.9637, 35.2433], 'türkiye': [38.9637, 35.2433], 'istanbul': [41.0082, 28.9784], 'ankara': [39.9334, 32.8597],
+        'kosovo': [42.6026, 20.9030], 'pristina': [42.6629, 21.1655], 'albania': [41.1533, 20.1683],
+        'serbia': [44.0165, 21.0059], 'bosnia': [43.9159, 17.6791], 'croatia': [45.1000, 15.2000],
+        'romania': [45.9432, 24.9668], 'bulgaria': [42.7339, 25.4858], 'greece': [39.0742, 21.8243],
+        'italy': [41.8719, 12.5674], 'spain': [40.4637, -3.7492], 'france': [46.2276, 2.2137],
+        'united kingdom': [55.3781, -3.4360], 'uk': [55.3781, -3.4360], 'netherlands': [52.1326, 5.2913],
+        'belgium': [50.5039, 4.4699], 'austria': [47.5162, 14.5501], 'switzerland': [46.8182, 8.2275],
+        'uae': [23.4241, 53.8478], 'dubai': [25.2048, 55.2708], 'saudi arabia': [23.8859, 45.0792],
+        'qatar': [25.3548, 51.1839], 'kuwait': [29.3117, 47.4818], 'jordan': [30.5852, 36.2384],
+        'egypt': [26.8206, 30.8025], 'morocco': [31.7917, -7.0926], 'united states': [37.0902, -95.7129], 'canada': [56.1304, -106.3468]
+    };
+
+    function resolveFallbackCoords(str) {
+        if (!str) return null;
+        const low = String(str).toLowerCase().trim();
+        const sortedKeys = Object.keys(KNOWN_COORDS).sort((a, b) => b.length - a.length);
+        for (const k of sortedKeys) {
+            const re = new RegExp('\\b' + k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i');
+            if (re.test(low)) return KNOWN_COORDS[k];
+        }
+        return null;
+    }
+
+    function hashSeed(str) {
+        let h = 0;
+        const s = String(str || '');
+        for (let i = 0; i < s.length; i++) h = (h << 5) - h + s.charCodeAt(i) | 0;
+        return Math.abs(h);
+    }
+
+    function viewOnMapOnly(e, id) {
+        e.stopPropagation();
+        if (window.innerWidth < 1024) {
+            switchMobileView('map');
+        }
+        setTimeout(() => {
+            if (markersMap[id] && map) {
+                map.invalidateSize();
+                const m = markersMap[id];
+                map.flyTo(m.getLatLng(), 13, { duration: 0.6 });
+                m.openPopup();
+            }
+        }, 120);
     }
 
     // ---------- Selection ----------
@@ -335,14 +498,11 @@
         el('modalLocation').innerText = '📍 ' + (firstVal(c?.location_string) || firstVal(c?.location) || firstVal(c?.destination_country) || 'Unknown');
 
         // Focus & pan map to this company's coordinates
-        const lat = c?.latitude;
-        const lng = c?.longitude;
-        if (typeof lat === 'number' && typeof lng === 'number' && isFinite(lat) && isFinite(lng) && map) {
+        if (markersMap[id] && map) {
             try {
-                map.flyTo([lat, lng], 13, { duration: 0.8 });
-                if (markersMap[id]) {
-                    setTimeout(() => markersMap[id].openPopup(), 400);
-                }
+                const m = markersMap[id];
+                map.flyTo(m.getLatLng(), 13, { duration: 0.8 });
+                setTimeout(() => m.openPopup(), 400);
             } catch (err) { console.warn('Map flyTo error:', err); }
         }
         setTimeout(() => { if (map) map.invalidateSize(); }, 200);
@@ -351,6 +511,13 @@
         const badge = el('modalStatusBadge');
         badge.innerText = status;
         badge.className = 'inline-block mt-2 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ' + statusBadgeClasses(status);
+
+        const allCats = [...normalize(c?.main_categories), ...normalize(c?.sub_categories)];
+        if (el('modalCategories')) {
+            el('modalCategories').innerHTML = allCats.length
+                ? allCats.map(ct => `<span class="px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs font-semibold border border-indigo-100">${esc(ct)}</span>`).join('')
+                : NA;
+        }
 
         el('modalEmail').innerHTML = renderEmails(c?.email);
         el('modalPhone').innerHTML = renderPhones(c?.phone);
@@ -387,9 +554,9 @@
     // ---------- Pill badge helper (array-aware) ----------
     function pillBadge(label, value, colorYes, colorNo) {
         if (hasValue(value)) {
-            return `<span class="px-2.5 py-1 rounded-full text-xs font-medium ${colorYes}">${label}</span>`;
+            return `<span class="px-2.5 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap ${colorYes}">${label}</span>`;
         }
-        return `<span class="px-2.5 py-1 rounded-full text-xs font-medium ${colorNo}">${label}</span>`;
+        return `<span class="px-2.5 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap ${colorNo}">${label}</span>`;
     }
 
     // ---------- Load Stats ----------
@@ -412,7 +579,11 @@
     // ---------- Load Data ----------
     async function loadData() {
         const q = document.getElementById('filterQ')?.value ?? '';
-        const city = document.getElementById('filterCity')?.value ?? '';
+        const country = document.getElementById('filterCountry')?.value ?? '';
+        const cityInput = document.getElementById('filterCity')?.value ?? '';
+        // Preserve exact original `city` parameter so backend query never breaks
+        const city = cityInput || country || '';
+
         const category = document.getElementById('filterCategory')?.value ?? '';
         const status = document.getElementById('filterStatus')?.value ?? 'all';
         const has_email = document.getElementById('filterEmail')?.value ?? '';
@@ -428,7 +599,17 @@
             if (!res.ok) { console.error('API error:', res.status); return; }
             
             const json = await res.json();
-            currentData = json?.data ?? [];
+            let loaded = json?.data ?? [];
+
+            if (country && cityInput) {
+                const cLow = country.toLowerCase();
+                loaded = loaded.filter(c => {
+                    const locBlob = [c?.address, c?.location_string, c?.location, c?.destination_country].join(' ').toLowerCase();
+                    return locBlob.includes(cLow);
+                });
+            }
+
+            currentData = loaded;
             totalRecords = json?.total ?? 0;
             console.log('Data loaded:', currentData.length, '/', totalRecords);
 
@@ -453,7 +634,7 @@
             }
             if (pageInfo) pageInfo.innerText = `Showing ${currentData.length} of ${totalRecords}`;
 
-            // Build cards
+            // Build horizontal line cards
             const grid = document.getElementById('cardGrid');
             if (!grid) return;
             grid.innerHTML = '';
@@ -464,7 +645,7 @@
                 grid.innerHTML = `
                     <div class="col-span-full flex flex-col items-center justify-center py-16 text-slate-400">
                         <div class="text-5xl mb-3">📋</div>
-                        <p class="text-sm font-medium">No companies found. Adjust your filters or migrate leads from Discovery Search.</p>
+                        <p class="text-sm font-medium text-center px-4">No companies found. Adjust your filters or migrate leads from Discovery Search.</p>
                     </div>`;
                 return;
             }
@@ -475,16 +656,21 @@
                 if (!c) return;
                 const id = c._id ?? '';
                 const name = c.name ?? c.buyer_name ?? 'Unnamed';
+                const address = c.address ? String(c.address).trim() : '';
                 const loc = c.location_string ?? c.location ?? c.destination_country ?? '';
+                const displayAddr = address || loc || 'No location';
                 const email = c.email ?? '';
                 const phone = c.phone ?? '';
                 const website = c.website ?? '';
                 const aiStatus = c.ai_status ?? 'pending';
                 const isSelected = selectedIds.has(id);
 
+                const cats = [...normalize(c.main_categories), ...normalize(c.sub_categories)].slice(0, 2);
+                const catPills = cats.map(ct => `<span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100 truncate max-w-[130px]">${esc(ct)}</span>`).join('');
+
                 const card = document.createElement('div');
-                card.className = 'card-animate bg-white rounded-xl border border-slate-200 p-4 cursor-pointer hover:shadow-md hover:border-indigo-200 transition-all relative group';
-                card.style.animationDelay = `${Math.min(i * 25, 250)}ms`;
+                card.className = 'card-animate bg-white rounded-xl border border-slate-200 p-3 sm:px-4 sm:py-2.5 cursor-pointer hover:shadow-md hover:border-indigo-200 transition-all flex flex-col sm:flex-row sm:flex-wrap xl:flex-nowrap sm:items-center justify-between gap-2.5 sm:gap-3 relative group';
+                card.style.animationDelay = `${Math.min(i * 20, 250)}ms`;
                 card.style.borderLeft = '4px solid ' + (aiStatus === 'completed' ? '#10b981' : aiStatus === 'scraped' ? '#06b6d4' : '#f59e0b');
                 card.onclick = () => openModal(id);
 
@@ -496,32 +682,64 @@
                     : '';
 
                 card.innerHTML = `
-                    <div onclick="toggleSelection(event, '${id}')" class="absolute top-3 right-3 w-6 h-6 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all hover:scale-110 ${selCircleClasses}">${selCheck}</div>
-                    <h3 class="text-sm font-bold text-slate-800 pr-8 mb-1 leading-snug">${esc(name)}</h3>
-                    <p class="text-xs text-slate-500 mb-3">📍 ${esc(loc) || '<span class="italic text-slate-400">No location</span>'}</p>
-                    <div class="flex flex-wrap gap-1.5 mb-3">
+                    <!-- Left: Selection Circle + Company Name + Location -->
+                    <div class="flex items-start sm:items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+                        <div onclick="toggleSelection(event, '${id}')" class="w-5 h-5 mt-0.5 sm:mt-0 rounded-full border-2 shrink-0 flex items-center justify-center cursor-pointer transition-all hover:scale-110 ${selCircleClasses}">${selCheck}</div>
+                        <div class="min-w-0 flex-1">
+                            <h3 class="text-sm font-bold text-slate-800 truncate leading-snug" title="${esc(name)}">${esc(name)}</h3>
+                            <div class="flex items-center gap-1 text-xs text-slate-500 truncate mt-0.5" title="${esc(displayAddr)}">
+                                <span class="text-indigo-500 font-bold shrink-0">📍</span>
+                                <span class="truncate font-medium">${esc(displayAddr)}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Middle: Categories + Contact Pills -->
+                    <div class="flex flex-wrap items-center gap-1.5 pl-7 sm:pl-0">
+                        ${catPills ? `<div class="flex flex-wrap gap-1 mr-1">${catPills}</div>` : ''}
                         ${pillBadge('📧 Email', email, 'bg-emerald-50 text-emerald-700 border border-emerald-200', 'bg-slate-100 text-slate-400 border border-slate-200')}
                         ${pillBadge('📞 Phone', phone, 'bg-blue-50 text-blue-700 border border-blue-200', 'bg-slate-100 text-slate-400 border border-slate-200')}
                         ${pillBadge('🌐 Website', website, 'bg-purple-50 text-purple-700 border border-purple-200', 'bg-slate-100 text-slate-400 border border-slate-200')}
                     </div>
-                    <div class="flex items-center justify-between pt-2.5 border-t border-slate-100">
+
+                    <!-- Right: Map + Status Badge + AI Enrich Button -->
+                    <div class="flex items-center justify-end gap-2 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 shrink-0">
+                        <span onclick="viewOnMapOnly(event, '${id}')" class="text-[11px] text-indigo-600 hover:text-indigo-800 font-semibold flex items-center gap-1 px-2 py-1 rounded hover:bg-indigo-50">
+                            🗺️ Map
+                        </span>
                         <span class="px-2.5 py-1 rounded-full text-[0.65rem] font-bold uppercase tracking-wider ${statusBadgeClasses(aiStatus)}">${esc(aiStatus)}</span>
-                        ${aiStatus !== 'completed' ? `<button onclick="enrichSingleCompany(event, '${id}')" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition-all flex items-center gap-1">✨ Enrich</button>` : ''}
+                        ${aiStatus !== 'completed' ? `<button onclick="enrichSingleCompany(event, '${id}')" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition-all flex items-center gap-1 whitespace-nowrap">✨ Enrich</button>` : ''}
                     </div>
                 `;
                 grid.appendChild(card);
 
-                // Map marker
-                const lat = c.latitude;
-                const lng = c.longitude;
-                if (typeof lat === 'number' && typeof lng === 'number' && isFinite(lat) && isFinite(lng) && markersGroup) {
+                // Map marker (with fallback coordinates if missing)
+                let lat = typeof c.latitude === 'number' ? c.latitude : null;
+                let lng = typeof c.longitude === 'number' ? c.longitude : null;
+                if (lat === null || lng === null || !isFinite(lat) || !isFinite(lng)) {
+                    let fallback = resolveFallbackCoords(displayAddr) || resolveFallbackCoords(loc);
+                    if (fallback) {
+                        const jitter = (hashSeed(id || name) % 30 - 15) * 0.003;
+                        lat = fallback[0] + jitter;
+                        lng = fallback[1] + jitter;
+                    }
+                }
+
+                if (lat !== null && lng !== null && isFinite(lat) && isFinite(lng) && markersGroup) {
                     try {
                         const marker = L.marker([lat, lng]);
                         marker.on('add', function() {
                             const el = marker.getElement?.();
                             if (el) el.classList.add('marker-' + aiStatus.toLowerCase());
                         });
-                        marker.bindPopup(`<b>${esc(name)}</b><br><span style="text-transform:capitalize">${esc(aiStatus)}</span>`);
+                        marker.bindPopup(`
+                            <div style="min-width: 200px; font-family: inherit;">
+                                <div style="font-weight: 700; font-size: 13px; color: #0f172a; margin-bottom: 3px;">${esc(name)}</div>
+                                <div style="font-size: 11px; color: #475569; margin-bottom: 5px;">📍 ${esc(displayAddr)}</div>
+                                <div style="font-size: 11px; text-transform: capitalize; font-weight: 600; margin-bottom: 6px;">Status: ${esc(aiStatus)}</div>
+                                <button onclick="openModal('${id}')" style="display:block; width:100%; text-align:center; background:#4f46e5; color:white; border:none; border-radius:6px; padding:5px 0; font-size:11px; font-weight:600; cursor:pointer;">View Full Details</button>
+                            </div>
+                        `);
                         markersGroup.addLayer(marker);
                         markersMap[id] = marker;
                         bounds.push([lat, lng]);
@@ -558,7 +776,7 @@
         if (e) e.stopPropagation();
         if (!id) return;
         const statusDiv = document.getElementById('enrichStatus');
-        if (statusDiv) statusDiv.innerHTML = '<div class="w-4 h-4 border-2 border-emerald-300 border-t-emerald-600 rounded-full spinner"></div> <span class="text-xs">Enriching company data with AI...</span>';
+        if (statusDiv) statusDiv.innerHTML = '<div class="w-4 h-4 border-2 border-emerald-300 border-t-emerald-600 rounded-full spinner"></div> <span class="text-xs">Enriching...</span>';
         
         const enrichBtn = document.getElementById('modalEnrichBtn');
         if (enrichBtn) { enrichBtn.disabled = true; enrichBtn.innerText = 'Enriching...'; }
@@ -593,7 +811,7 @@
     function startEnrich() {
         const statusDiv = document.getElementById('enrichStatus');
         const btn = document.getElementById('enrichBtn');
-        if (statusDiv) statusDiv.innerHTML = '<div class="w-4 h-4 border-2 border-emerald-300 border-t-emerald-600 rounded-full spinner"></div> <span>Connecting...</span>';
+        if (statusDiv) statusDiv.innerHTML = '<div class="w-4 h-4 border-2 border-emerald-300 border-t-emerald-600 rounded-full spinner"></div> <span class="text-xs">Connecting...</span>';
         if (btn) btn.disabled = true;
 
         const evtSource = new EventSource('/api/enrich?limit=10');
@@ -603,11 +821,11 @@
                 const data = JSON.parse(event.data);
                 const msg = data?.message ?? '';
                 console.log('Enrich SSE:', msg);
-                if (statusDiv) statusDiv.innerHTML = `<span class="text-slate-600">${esc(msg)}</span>`;
+                if (statusDiv) statusDiv.innerHTML = `<span class="text-slate-600 text-xs">${esc(msg)}</span>`;
                 if (msg.includes('Enriched') || msg.includes('Finished')) { loadData(); loadStats(); }
                 if (data?.done) {
                     evtSource.close();
-                    if (statusDiv) statusDiv.innerHTML = '<span class="text-emerald-600 font-semibold">✓ Batch Complete!</span>';
+                    if (statusDiv) statusDiv.innerHTML = '<span class="text-emerald-600 font-semibold text-xs">✓ Batch Complete!</span>';
                     if (btn) btn.disabled = false;
                     loadData();
                     loadStats();
@@ -617,7 +835,7 @@
 
         evtSource.onerror = function() {
             console.error('SSE connection error');
-            if (statusDiv) statusDiv.innerHTML = '<span class="text-red-500 font-medium">⚠ Connection error</span>';
+            if (statusDiv) statusDiv.innerHTML = '<span class="text-red-500 font-medium text-xs">⚠ Connection error</span>';
             evtSource.close();
             if (btn) btn.disabled = false;
         };
@@ -630,15 +848,26 @@
         debounceTimer = setTimeout(() => { currentPage = 1; loadData(); }, 300);
     }
 
-    ['filterQ', 'filterCity'].forEach(id => {
-        document.getElementById(id)?.addEventListener('input', debouncedLoad);
+    const qDesktop = document.getElementById('filterQ');
+    const qMobile = document.getElementById('filterQMobile');
+    qDesktop?.addEventListener('input', () => {
+        if (qMobile) qMobile.value = qDesktop.value;
+        debouncedLoad();
     });
-    ['filterCategory', 'filterStatus', 'filterEmail', 'filterPhone', 'filterWebsite', 'filterSort'].forEach(id => {
+    qMobile?.addEventListener('input', () => {
+        if (qDesktop) qDesktop.value = qMobile.value;
+        debouncedLoad();
+    });
+
+    document.getElementById('filterCity')?.addEventListener('input', debouncedLoad);
+    ['filterCountry', 'filterCategory', 'filterStatus', 'filterEmail', 'filterPhone', 'filterWebsite', 'filterSort'].forEach(id => {
         document.getElementById(id)?.addEventListener('change', () => { currentPage = 1; loadData(); });
     });
 
-    document.getElementById('resetFiltersBtn')?.addEventListener('click', () => {
+    function resetAllFilters() {
         if (document.getElementById('filterQ')) document.getElementById('filterQ').value = '';
+        if (document.getElementById('filterQMobile')) document.getElementById('filterQMobile').value = '';
+        if (document.getElementById('filterCountry')) document.getElementById('filterCountry').value = '';
         if (document.getElementById('filterCity')) document.getElementById('filterCity').value = '';
         if (document.getElementById('filterCategory')) document.getElementById('filterCategory').value = 'all';
         if (document.getElementById('filterStatus')) document.getElementById('filterStatus').value = 'all';
@@ -648,7 +877,7 @@
         if (document.getElementById('filterSort')) document.getElementById('filterSort').value = 'newest';
         currentPage = 1;
         loadData();
-    });
+    }
 
     // Esc key
     document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
