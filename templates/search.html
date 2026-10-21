@@ -30,7 +30,6 @@
         .card-animate { animation: fadeSlideIn 0.22s ease-out both; }
         @keyframes spin { to { transform: rotate(360deg); } }
         .spinner { animation: spin 0.7s linear infinite; }
-        /* Use dynamic viewport height so mobile browser address bars don't clip bottom content */
         .h-dvh-screen { height: 100vh; height: 100dvh; }
     </style>
 </head>
@@ -65,13 +64,11 @@
                     </h1>
                     <p class="text-xs sm:text-sm text-slate-500 hidden sm:block mt-0.5">Find and discover new company leads</p>
                 </div>
-                <!-- Mobile Collapse Scraper Button -->
                 <button id="toggleScraperMobile" onclick="toggleMobileSection('scraperControls')" class="md:hidden px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
                     ➕ New Lead Search
                 </button>
             </div>
 
-            <!-- Scraper Inputs (Collapsible on phone, always visible on tablet/desktop) -->
             <div id="scraperControls" class="hidden md:flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                 <select id="scrapeCategory" class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 text-slate-700 cursor-pointer font-medium">
                     <option value="all">⚡ All Aluminium Profiles</option>
@@ -86,31 +83,31 @@
                     <input type="text" id="scrapeLoc" placeholder="e.g. Germany, Kosovo..."
                         class="flex-1 sm:w-44 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 transition placeholder:text-slate-400">
                     <button id="scrapeBtn" class="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-1.5 whitespace-nowrap shrink-0">
-                        🔍 Find Leads
+                        🔍 Find New Leads
                     </button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- ===== STATS ROW (Compact 4-col on mobile, spacious on desktop) ===== -->
+    <!-- ===== STATS ROW ===== -->
     <div class="bg-white border-b border-slate-200 px-3 sm:px-6 py-2 sm:py-3 shrink-0">
         <div class="grid grid-cols-4 gap-1.5 sm:gap-3">
             <div class="bg-slate-50 rounded-lg sm:rounded-xl px-2.5 sm:px-4 py-1.5 sm:py-2.5 border border-slate-100 text-center sm:text-left">
                 <div id="statTotal" class="text-base sm:text-2xl font-extrabold text-indigo-600 leading-tight">—</div>
-                <div class="text-[10px] sm:text-xs font-medium text-slate-500 truncate">Companies</div>
+                <div class="text-[10px] sm:text-xs font-medium text-slate-500 truncate">Total Companies</div>
             </div>
             <div class="bg-slate-50 rounded-lg sm:rounded-xl px-2.5 sm:px-4 py-1.5 sm:py-2.5 border border-slate-100 text-center sm:text-left">
                 <div id="statEmail" class="text-base sm:text-2xl font-extrabold text-emerald-600 leading-tight">—</div>
-                <div class="text-[10px] sm:text-xs font-medium text-slate-500 truncate">Emails</div>
+                <div class="text-[10px] sm:text-xs font-medium text-slate-500 truncate">Emails Found</div>
             </div>
             <div class="bg-slate-50 rounded-lg sm:rounded-xl px-2.5 sm:px-4 py-1.5 sm:py-2.5 border border-slate-100 text-center sm:text-left">
                 <div id="statPhone" class="text-base sm:text-2xl font-extrabold text-blue-600 leading-tight">—</div>
-                <div class="text-[10px] sm:text-xs font-medium text-slate-500 truncate">Phones</div>
+                <div class="text-[10px] sm:text-xs font-medium text-slate-500 truncate">Phones Found</div>
             </div>
             <div class="bg-slate-50 rounded-lg sm:rounded-xl px-2.5 sm:px-4 py-1.5 sm:py-2.5 border border-slate-100 text-center sm:text-left">
                 <div id="statWebsite" class="text-base sm:text-2xl font-extrabold text-purple-600 leading-tight">—</div>
-                <div class="text-[10px] sm:text-xs font-medium text-slate-500 truncate">Websites</div>
+                <div class="text-[10px] sm:text-xs font-medium text-slate-500 truncate">Websites Found</div>
             </div>
         </div>
     </div>
@@ -123,11 +120,11 @@
         </div>
     </div>
 
-    <!-- ===== FILTER BAR (Smart Mobile Drawer + Full Desktop Bar) ===== -->
+    <!-- ===== FILTER BAR ===== -->
     <div class="bg-white border-b border-slate-200 px-3 sm:px-6 py-2.5 shrink-0">
-        <!-- Top Row on Mobile: Search Input + Country + Filter Toggle -->
-        <div class="flex items-center gap-2 lg:hidden mb-0">
-            <input type="text" id="filterQMobile" placeholder="Search company..."
+        <!-- Mobile Quick Bar -->
+        <div class="flex items-center gap-2 lg:hidden">
+            <input type="text" id="filterQMobile" placeholder="Search company name..."
                 class="flex-1 min-w-0 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300">
             <button onclick="toggleMobileSection('filterDrawer')" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1 shrink-0">
                 ⚙️ Filters
@@ -137,13 +134,12 @@
             </button>
         </div>
 
-        <!-- Full Filter Container (Collapsible on <lg, always flex on lg+) -->
+        <!-- Full Filter Bar -->
         <div id="filterDrawer" class="hidden lg:flex flex-wrap items-center gap-2 mt-2.5 lg:mt-0 pt-2.5 lg:pt-0 border-t lg:border-t-0 border-slate-100">
-            <!-- Desktop Company Search -->
             <input type="text" id="filterQ" placeholder="Search company name..."
                 class="hidden lg:block px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 transition w-44 placeholder:text-slate-400">
             
-            <!-- Country Filter -->
+            <!-- Country Filter Dropdown -->
             <select id="filterCountry" class="w-[calc(50%-4px)] sm:w-auto lg:w-40 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 text-slate-600 cursor-pointer">
                 <option value="">🌍 Country: All</option>
                 <option value="Georgia">Georgia</option>
@@ -169,7 +165,7 @@
                 <option value="Czech Republic">Czech Republic</option>
                 <option value="Hungary">Hungary</option>
                 <option value="Slovakia">Slovakia</option>
-                <option value="United Arab Emirates">UAE</option>
+                <option value="UAE">UAE</option>
                 <option value="Saudi Arabia">Saudi Arabia</option>
                 <option value="Qatar">Qatar</option>
                 <option value="Kuwait">Kuwait</option>
@@ -180,17 +176,17 @@
                 <option value="Canada">Canada</option>
             </select>
 
-            <!-- City / Address Filter -->
-            <input type="text" id="filterCity" placeholder="City / address..."
+            <!-- City Filter -->
+            <input type="text" id="filterCity" placeholder="Filter by city..."
                 class="w-[calc(50%-4px)] sm:w-36 lg:w-40 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 placeholder:text-slate-400">
             
             <select id="filterCategory" class="w-[calc(50%-4px)] sm:w-auto px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 text-slate-600 cursor-pointer">
                 <option value="all">Category: All</option>
                 <option value="LED">💡 LED Profile</option>
                 <option value="Tile">🔲 Tile Trim</option>
-                <option value="Furniture">🪑 Furniture</option>
-                <option value="Glass">🚿 Glass</option>
-                <option value="Decorative">🎨 Decorative</option>
+                <option value="Furniture">🪑 Furniture Profile</option>
+                <option value="Glass">🚿 Glass Profile</option>
+                <option value="Decorative">🎨 Decorative Profile</option>
                 <option value="Extrusion">⚙️ Extrusion</option>
             </select>
 
@@ -201,4 +197,667 @@
             </select>
             <select id="filterPhone" class="w-[calc(50%-4px)] sm:w-auto px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 text-slate-600 cursor-pointer">
                 <option value="">Phone: All</option>
-                <option value
+                <option value="true">📞 Has Phone</option>
+                <option value="false">❌ No Phone</option>
+            </select>
+            <select id="filterWebsite" class="w-[calc(50%-4px)] sm:w-auto px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 text-slate-600 cursor-pointer">
+                <option value="">Website: All</option>
+                <option value="true">🌐 Has Website</option>
+                <option value="false">❌ No Website</option>
+            </select>
+            <select id="filterSort" class="w-full sm:w-auto px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 text-slate-600 cursor-pointer">
+                <option value="newest">Newest First</option>
+                <option value="oldest">Oldest First</option>
+            </select>
+            
+            <button id="resetFiltersBtn" onclick="resetAllFilters()" title="Reset all filters" class="hidden lg:inline-flex px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">
+                ↺ Reset
+            </button>
+
+            <div class="ml-auto text-xs text-slate-400 font-medium" id="pageInfo"></div>
+        </div>
+    </div>
+
+    <!-- ===== MOBILE VIEW SWITCHER (List vs Map) ===== -->
+    <div class="flex lg:hidden bg-slate-100 border-b border-slate-200 p-1.5 gap-1.5 shrink-0">
+        <button id="mobileTabList" onclick="switchMobileView('list')" class="flex-1 py-1.5 rounded-lg text-xs font-bold bg-white text-indigo-700 shadow-sm transition-all flex items-center justify-center gap-1.5">
+            📋 Company List
+        </button>
+        <button id="mobileTabMap" onclick="switchMobileView('map')" class="flex-1 py-1.5 rounded-lg text-xs font-bold text-slate-600 hover:text-slate-900 transition-all flex items-center justify-center gap-1.5">
+            🗺️ Interactive Map
+        </button>
+    </div>
+
+    <!-- ===== MAIN CONTENT ===== -->
+    <div class="flex flex-1 overflow-hidden min-h-0 relative">
+        <!-- Horizontal Line List -->
+        <div class="w-full lg:flex-1 overflow-y-auto scroll-panel p-2.5 sm:p-4 bg-slate-50" id="listPanel">
+            <div class="flex flex-col gap-2" id="cardGrid">
+                <!-- Line rows injected here -->
+            </div>
+            <div id="paginationBar" class="flex items-center justify-center gap-2 mt-6 mb-4 hidden">
+                <button onclick="goPage('prev')" id="prevBtn" class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs sm:text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition">← Prev</button>
+                <span id="pageLabel" class="text-xs sm:text-sm font-medium text-slate-500 px-2">Page 1</span>
+                <button onclick="goPage('next')" id="nextBtn" class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs sm:text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition">Next →</button>
+            </div>
+        </div>
+
+        <!-- Map -->
+        <div id="mapPanel" class="w-full lg:flex-1 h-full border-l border-slate-200 relative hidden lg:block">
+            <div id="mainMap" class="w-full h-full"></div>
+            <button onclick="switchMobileView('list')" class="lg:hidden absolute bottom-5 left-1/2 -translate-x-1/2 z-[1000] bg-slate-900/90 text-white px-4 py-2 rounded-full text-xs font-bold shadow-lg backdrop-blur-sm flex items-center gap-1.5">
+                📋 Back to List
+            </button>
+        </div>
+    </div>
+
+    <!-- ===== MODAL ===== -->
+    <div id="companyModal" class="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4 hidden" onclick="closeModal(event)">
+        <div class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
+        <div class="relative bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-lg max-h-[88vh] sm:max-h-[85vh] overflow-y-auto z-10" onclick="event.stopPropagation()">
+            <button onclick="closeModal(event)" class="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-100 hover:bg-red-50 hover:text-red-500 flex items-center justify-center text-slate-400 text-lg transition-colors z-20">&times;</button>
+            <div class="px-6 pt-6 pb-4 border-b border-slate-100">
+                <h2 id="modalName" class="text-lg font-bold text-slate-900 pr-10">Company Name</h2>
+                <p id="modalLocation" class="text-sm text-slate-500 mt-1">📍 Location</p>
+            </div>
+            <div class="px-6 py-4 space-y-4">
+                <div>
+                    <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Categories / Products</div>
+                    <div id="modalCategories" class="text-sm text-slate-700 flex flex-wrap gap-1.5"><span class="italic text-slate-400">Not Available</span></div>
+                </div>
+                <div>
+                    <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Description</div>
+                    <div id="modalDesc" class="text-sm text-slate-600 leading-relaxed"><span class="italic text-slate-400">Not Available</span></div>
+                </div>
+                <div>
+                    <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Email</div>
+                    <div id="modalEmail" class="text-sm text-slate-700 break-all"><span class="italic text-slate-400">Not Available</span></div>
+                </div>
+                <div>
+                    <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Phone</div>
+                    <div id="modalPhone" class="text-sm text-slate-700"><span class="italic text-slate-400">Not Available</span></div>
+                </div>
+                <div>
+                    <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Website</div>
+                    <div id="modalWebsite" class="text-sm text-slate-700 break-all"><span class="italic text-slate-400">Not Available</span></div>
+                </div>
+                <div>
+                    <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Address</div>
+                    <div id="modalAddress" class="text-sm text-slate-700"><span class="italic text-slate-400">Not Available</span></div>
+                </div>
+                <div>
+                    <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Social Links</div>
+                    <div id="modalSocials" class="text-sm text-slate-700 flex flex-wrap gap-2"><span class="italic text-slate-400">Not Available</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    let map = null;
+    let markersGroup = null;
+    let markersMap = {};
+    let selectedIds = new Set();
+    let currentData = [];
+    let currentPage = 1;
+    let totalRecords = 0;
+    const PER_PAGE = 100;
+
+    function toggleMobileSection(id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.classList.toggle('hidden');
+        if (map) setTimeout(() => map.invalidateSize(), 150);
+    }
+
+    function switchMobileView(view) {
+        const listPanel = document.getElementById('listPanel');
+        const mapPanel = document.getElementById('mapPanel');
+        const tabList = document.getElementById('mobileTabList');
+        const tabMap = document.getElementById('mobileTabMap');
+
+        if (window.innerWidth >= 1024) return;
+
+        if (view === 'map') {
+            listPanel?.classList.add('hidden');
+            mapPanel?.classList.remove('hidden');
+            tabMap?.classList.add('bg-white', 'text-indigo-700', 'shadow-sm');
+            tabMap?.classList.remove('text-slate-600');
+            tabList?.classList.remove('bg-white', 'text-indigo-700', 'shadow-sm');
+            tabList?.classList.add('text-slate-600');
+            setTimeout(() => { if (map) map.invalidateSize(); }, 100);
+        } else {
+            mapPanel?.classList.add('hidden');
+            listPanel?.classList.remove('hidden');
+            tabList?.classList.add('bg-white', 'text-indigo-700', 'shadow-sm');
+            tabList?.classList.remove('text-slate-600');
+            tabMap?.classList.remove('bg-white', 'text-indigo-700', 'shadow-sm');
+            tabMap?.classList.add('text-slate-600');
+        }
+    }
+
+    window.addEventListener('resize', () => {
+        if (window.innerWidth >= 1024) {
+            document.getElementById('listPanel')?.classList.remove('hidden');
+            document.getElementById('mapPanel')?.classList.remove('hidden');
+            if (map) map.invalidateSize();
+        }
+    });
+
+    function initMap() {
+        const el = document.getElementById('mainMap');
+        if (!el) return;
+        try {
+            map = L.map('mainMap').setView([39, 35], 3);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap'
+            }).addTo(map);
+            markersGroup = L.layerGroup().addTo(map);
+            console.log('Map initialized');
+        } catch (e) { console.error('Map init error:', e); }
+    }
+
+    const KNOWN_COORDS = {
+        'georgia': [41.7151, 44.8271], 'tbilisi': [41.7151, 44.8271], 'batumi': [41.6168, 41.6367],
+        'poland': [51.9194, 19.1451], 'polska': [51.9194, 19.1451],
+        'kety': [49.8868, 19.2274], 'kęty': [49.8868, 19.2274],
+        'bielsko-biala': [49.8225, 19.0444], 'bielsko-biała': [49.8225, 19.0444],
+        'warsaw': [52.2297, 21.0122], 'warszawa': [52.2297, 21.0122],
+        'krakow': [50.0647, 19.9450], 'kraków': [50.0647, 19.9450],
+        'wroclaw': [51.1079, 17.0385], 'wrocław': [51.1079, 17.0385],
+        'poznan': [52.4064, 16.9252], 'poznań': [52.4064, 16.9252],
+        'katowice': [50.2649, 19.0238], 'gliwice': [50.2945, 18.6714],
+        'tychy': [50.1261, 18.9867], 'czestochowa': [50.8118, 19.1203], 'częstochowa': [50.8118, 19.1203],
+        'konin': [52.2234, 18.2512], 'opole': [50.6751, 17.9213],
+        'rzeszow': [50.0412, 21.9991], 'rzeszów': [50.0412, 21.9991],
+        'gdansk': [54.3520, 18.6466], 'gdańsk': [54.3520, 18.6466],
+        'lodz': [51.7592, 19.4560], 'łódź': [51.7592, 19.4560],
+        'germany': [51.1657, 10.4515], 'deutschland': [51.1657, 10.4515],
+        'velbert': [51.3400, 7.0420], 'wuppertal': [51.2562, 7.1508], 'solingen': [51.1712, 7.0838],
+        'hagen': [51.3671, 7.4633], 'iserlohn': [51.3768, 7.6978], 'ludenscheid': [51.2198, 7.6272],
+        'berlin': [52.5200, 13.4050], 'munich': [48.1351, 11.5820], 'münchen': [48.1351, 11.5820],
+        'frankfurt': [50.1109, 8.6821], 'hamburg': [53.5511, 9.9937], 'stuttgart': [48.7758, 9.1829],
+        'dusseldorf': [51.2277, 6.7735], 'düsseldorf': [51.2277, 6.7735],
+        'cologne': [50.9375, 6.9603], 'köln': [50.9375, 6.9603],
+        'dortmund': [51.5136, 7.4653], 'essen': [51.4556, 7.0116],
+        'united states': [37.0902, -95.7129], 'usa': [37.0902, -95.7129], 'u.s.': [37.0902, -95.7129],
+        'canada': [56.1304, -106.3468], 'mexico': [23.6345, -102.5528],
+        'chicago': [41.8781, -87.6298], 'elk grove village': [42.0039, -87.9703], 'elk grove': [42.0039, -87.9703],
+        'new york': [40.7128, -74.0060], 'los angeles': [34.0522, -118.2437], 'houston': [29.7604, -95.3698],
+        'dallas': [32.7767, -96.7970], 'cleveland': [41.4993, -81.6944], 'detroit': [42.3314, -83.0458],
+        'united kingdom': [55.3781, -3.4360], 'uk': [55.3781, -3.4360], 'britain': [55.3781, -3.4360], 'england': [52.3555, -1.1743],
+        'london': [51.5074, -0.1278], 'birmingham': [52.4862, -1.8904], 'manchester': [53.4808, -2.2426], 'telford': [52.6784, -2.4452],
+        'france': [46.2276, 2.2137], 'paris': [48.8566, 2.3522], 'lyon': [45.7640, 4.8357],
+        'italy': [41.8719, 12.5674], 'italia': [41.8719, 12.5674],
+        'milan': [45.4642, 9.1900], 'milano': [45.4642, 9.1900], 'brescia': [45.5416, 10.2118], 'rome': [41.9028, 12.4964],
+        'spain': [40.4637, -3.7492], 'españa': [40.4637, -3.7492], 'espana': [40.4637, -3.7492],
+        'madrid': [40.4168, -3.7038], 'barcelona': [41.3879, 2.1699], 'valencia': [39.4699, -0.3763], 'alicante': [38.3452, -0.4810],
+        'netherlands': [52.1326, 5.2913], 'holland': [52.1326, 5.2913],
+        'belgium': [50.5039, 4.4699], 'switzerland': [46.8182, 8.2275], 'schweiz': [46.8182, 8.2275],
+        'austria': [47.5162, 14.5501], 'portugal': [39.3999, -8.2245], 'greece': [39.0742, 21.8243],
+        'sweden': [60.1282, 18.6435], 'norway': [60.4720, 8.4689], 'denmark': [56.2639, 9.5018], 'finland': [61.9241, 25.7482],
+        'czech republic': [49.8175, 15.4730], 'czechia': [49.8175, 15.4730], 'slovakia': [48.6690, 19.6990],
+        'hungary': [47.1625, 19.5033], 'romania': [45.9432, 24.9668], 'bulgaria': [42.7339, 25.4858],
+        'croatia': [45.1000, 15.2000], 'slovenia': [46.1512, 14.9955], 'serbia': [44.0165, 21.0059],
+        'bosnia': [43.9159, 17.6791], 'albania': [41.1533, 20.1683], 'kosovo': [42.6026, 20.9030], 'pristina': [42.6629, 21.1655],
+        'turkey': [38.9637, 35.2433], 'türkiye': [38.9637, 35.2433], 'turkiye': [38.9637, 35.2433],
+        'united arab emirates': [23.4241, 53.8478], 'uae': [23.4241, 53.8478],
+        'dubai': [25.2048, 55.2708], 'al quoz': [25.1384, 55.2346], 'jafza': [24.9857, 55.0874], 'sharjah': [25.3463, 55.4209], 'abu dhabi': [24.4539, 54.3773],
+        'saudi arabia': [23.8859, 45.0792], 'ksa': [23.8859, 45.0792],
+        'riyadh': [24.7136, 46.6753], 'jeddah': [21.5433, 39.1728], 'dammam': [26.4207, 50.0888], 'jubail': [27.0046, 49.6225],
+        'qatar': [25.3548, 51.1839], 'doha': [25.2854, 51.5310], 'kuwait': [29.3117, 47.4818],
+        'oman': [21.5126, 55.9233], 'bahrain': [26.0667, 50.5577], 'jordan': [30.5852, 36.2384],
+        'egypt': [26.8206, 30.8025], 'cairo': [30.0444, 31.2357], 'morocco': [31.7917, -7.0926],
+        'sincan': [39.9583, 32.5786], 'ostim': [39.9725, 32.7483], 'ivedik': [39.9817, 32.7667], 'ankara': [39.9334, 32.8597],
+        'istanbul': [41.0082, 28.9784], 'esenyurt': [41.0342, 28.6801], 'basaksehir': [41.0967, 28.8028],
+        'tuzla': [40.8167, 29.3000], 'umraniye': [41.0256, 29.1172],
+        'tekirdag': [40.9781, 27.5117], 'tekirdağ': [40.9781, 27.5117], 'corlu': [41.1594, 27.7986], 'çorlu': [41.1594, 27.7986],
+        'cerkezkoy': [41.2917, 28.0017], 'çerkezköy': [41.2917, 28.0017], 'ergene': [41.2581, 27.6719],
+        'kapakli': [41.3236, 27.9783], 'kapaklı': [41.3236, 27.9783], 'velikoy': [41.2427, 27.9300], 'veliköy': [41.2427, 27.9300],
+        'izmir': [38.4237, 27.1428], 'bursa': [40.1885, 29.0610], 'antalya': [36.8969, 30.7133], 'konya': [37.8746, 32.4932],
+        'kocaeli': [40.8533, 29.8815], 'gebze': [40.8028, 29.4307], 'sakarya': [40.7569, 30.3783],
+        'china': [35.8617, 104.1954], 'foshan': [23.0215, 113.1214], 'dali': [23.1121, 113.1049], 'nanhai': [23.0287, 113.1429],
+        'guangzhou': [23.1291, 113.2644], 'shenzhen': [22.5431, 114.0579], 'dongguan': [23.0207, 113.7518],
+        'india': [20.5937, 78.9629], 'japan': [36.2048, 138.2529], 'south korea': [35.9078, 127.7669],
+        'australia': [-25.2744, 133.7751], 'brazil': [-14.2350, -51.9253], 'south africa': [-30.5595, 22.9375]
+    };
+
+    function resolveFallbackCoords(str) {
+        if (!str) return null;
+        const low = String(str).toLowerCase().trim();
+        const sortedKeys = Object.keys(KNOWN_COORDS).sort((a, b) => b.length - a.length);
+        for (const k of sortedKeys) {
+            const re = new RegExp('\\b' + k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i');
+            if (re.test(low)) return KNOWN_COORDS[k];
+        }
+        return null;
+    }
+
+    function hashSeed(str) {
+        let h = 0;
+        const s = String(str || '');
+        for (let i = 0; i < s.length; i++) h = (h << 5) - h + s.charCodeAt(i) | 0;
+        return Math.abs(h);
+    }
+
+    function focusMapAndOpen(id) {
+        if (markersMap[id] && map) {
+            const m = markersMap[id];
+            map.flyTo(m.getLatLng(), 13, { duration: 0.6 });
+            m.openPopup();
+        }
+        openModal(id);
+    }
+
+    function viewOnMapOnly(e, id) {
+        e.stopPropagation();
+        if (window.innerWidth < 1024) {
+            switchMobileView('map');
+        }
+        setTimeout(() => {
+            if (markersMap[id] && map) {
+                map.invalidateSize();
+                const m = markersMap[id];
+                map.flyTo(m.getLatLng(), 13, { duration: 0.6 });
+                m.openPopup();
+            }
+        }, 120);
+    }
+
+    function toggleSelection(e, id) {
+        e.stopPropagation();
+        const circle = e.currentTarget;
+        if (selectedIds.has(id)) {
+            selectedIds.delete(id);
+            circle.classList.remove('bg-indigo-500', 'border-indigo-500', 'text-white');
+            circle.classList.add('bg-white', 'border-slate-300');
+            circle.innerHTML = '';
+        } else {
+            selectedIds.add(id);
+            circle.classList.remove('bg-white', 'border-slate-300');
+            circle.classList.add('bg-indigo-500', 'border-indigo-500', 'text-white');
+            circle.innerHTML = '<svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>';
+        }
+    }
+
+    function normalize(val) {
+        if (val == null) return [];
+        if (Array.isArray(val)) return val.map(v => String(v ?? '').trim()).filter(Boolean);
+        if (typeof val === 'string') {
+            const s = val.trim();
+            if (s.startsWith('[')) {
+                try {
+                    const parsed = JSON.parse(s);
+                    if (Array.isArray(parsed)) return parsed.map(v => String(v ?? '').trim()).filter(Boolean);
+                } catch (e) {}
+            }
+            return s ? [s] : [];
+        }
+        const str = String(val).trim();
+        return str ? [str] : [];
+    }
+    function hasValue(val) { return normalize(val).length > 0; }
+    function firstVal(val) { const a = normalize(val); return a.length ? a[0] : ''; }
+    const NA = '<span class="italic text-slate-400">Not Available</span>';
+
+    function renderEmails(val) {
+        const arr = normalize(val);
+        if (!arr.length) return NA;
+        return arr.map(e => `<a href="mailto:${esc(e)}" class="text-indigo-600 hover:underline">${esc(e)}</a>`).join('<br>');
+    }
+    function renderPhones(val) {
+        const arr = normalize(val);
+        if (!arr.length) return NA;
+        return arr.map(p => `<a href="tel:${esc(p)}" class="text-indigo-600 hover:underline">${esc(p)}</a>`).join('<br>');
+    }
+    function renderWebsites(val) {
+        const arr = normalize(val);
+        if (!arr.length) return NA;
+        return arr.map(w => `<a href="${w}" target="_blank" class="text-indigo-600 hover:underline">${esc(w)}</a>`).join('<br>');
+    }
+    function renderAddresses(val) {
+        const arr = normalize(val);
+        if (!arr.length) return NA;
+        return arr.map(a => `<span>${esc(a)}</span>`).join('<br>');
+    }
+
+    function openModal(id) {
+        const c = currentData.find(x => (x?._id ?? '') === id);
+        if (!c) return;
+        const el = (i) => document.getElementById(i);
+
+        el('modalName').innerText = firstVal(c?.name) || firstVal(c?.buyer_name) || 'Unknown';
+        el('modalLocation').innerText = '📍 ' + (firstVal(c?.location_string) || firstVal(c?.location) || firstVal(c?.destination_country) || 'Unknown');
+
+        const lat = c?.latitude;
+        const lng = c?.longitude;
+        if (typeof lat === 'number' && typeof lng === 'number' && isFinite(lat) && isFinite(lng) && map) {
+            try {
+                map.flyTo([lat, lng], 13, { duration: 0.8 });
+                if (markersMap[id]) setTimeout(() => markersMap[id].openPopup(), 400);
+            } catch (err) { console.warn('Map flyTo error:', err); }
+        }
+        setTimeout(() => { if (map) map.invalidateSize(); }, 200);
+
+        const allCats = [...normalize(c?.main_categories), ...normalize(c?.sub_categories)];
+        if (allCats.length) {
+            el('modalCategories').innerHTML = allCats.map(ct => `<span class="px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs font-semibold border border-indigo-100">${esc(ct)}</span>`).join('');
+        } else {
+            el('modalCategories').innerHTML = NA;
+        }
+
+        el('modalDesc').innerText = firstVal(c?.description) || 'No description provided';
+        el('modalEmail').innerHTML = renderEmails(c?.email);
+        el('modalPhone').innerHTML = renderPhones(c?.phone);
+        el('modalWebsite').innerHTML = renderWebsites(c?.website);
+        el('modalAddress').innerHTML = renderAddresses(c?.address);
+
+        const socials = [];
+        if (c?.facebook) socials.push(`<a href="${firstVal(c.facebook)}" target="_blank" class="px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-medium hover:bg-blue-100 transition">Facebook</a>`);
+        if (c?.twitter) socials.push(`<a href="${firstVal(c.twitter)}" target="_blank" class="px-2.5 py-1 bg-sky-50 text-sky-700 rounded-full text-xs font-medium hover:bg-sky-100 transition">Twitter</a>`);
+        if (c?.linkedin) socials.push(`<a href="${firstVal(c.linkedin)}" target="_blank" class="px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs font-medium hover:bg-indigo-100 transition">LinkedIn</a>`);
+        if (c?.instagram) socials.push(`<a href="${firstVal(c.instagram)}" target="_blank" class="px-2.5 py-1 bg-pink-50 text-pink-700 rounded-full text-xs font-medium hover:bg-pink-100 transition">Instagram</a>`);
+        if (c?.youtube) socials.push(`<a href="${firstVal(c.youtube)}" target="_blank" class="px-2.5 py-1 bg-red-50 text-red-700 rounded-full text-xs font-medium hover:bg-red-100 transition">YouTube</a>`);
+        el('modalSocials').innerHTML = socials.length ? socials.join('') : NA;
+
+        document.getElementById('companyModal').classList.remove('hidden');
+    }
+
+    function closeModal(e) {
+        if (e) e.stopPropagation();
+        document.getElementById('companyModal')?.classList.add('hidden');
+    }
+
+    function pillBadge(label, value, colorYes, colorNo) {
+        return hasValue(value)
+            ? `<span class="px-2.5 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap ${colorYes}">${label}</span>`
+            : `<span class="px-2.5 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap ${colorNo}">${label}</span>`;
+    }
+
+    async function loadStats() {
+        try {
+            const res = await fetch('/api/get_search_stats');
+            if (!res.ok) return;
+            const s = await res.json();
+            console.log('Search stats:', s);
+            document.getElementById('statTotal').innerText = s?.total ?? 0;
+            document.getElementById('statEmail').innerText = s?.with_email ?? 0;
+            document.getElementById('statPhone').innerText = s?.with_phone ?? 0;
+            document.getElementById('statWebsite').innerText = s?.with_website ?? 0;
+        } catch (e) { console.error('Stats error:', e); }
+    }
+
+    async function loadData() {
+        const q = document.getElementById('filterQ')?.value ?? '';
+        const country = document.getElementById('filterCountry')?.value ?? '';
+        const cityInput = document.getElementById('filterCity')?.value ?? '';
+        // Use exact original `city` parameter so backend query never breaks!
+        const city = cityInput || country || '';
+
+        const category = document.getElementById('filterCategory')?.value ?? '';
+        const has_email = document.getElementById('filterEmail')?.value ?? '';
+        const has_phone = document.getElementById('filterPhone')?.value ?? '';
+        const has_website = document.getElementById('filterWebsite')?.value ?? '';
+        const sort = document.getElementById('filterSort')?.value ?? 'newest';
+
+        // EXACT original URLSearchParams signature expected by your backend
+        const params = new URLSearchParams({ q, city, category, has_email, has_phone, has_website, sort, page: currentPage, per_page: PER_PAGE });
+
+        try {
+            console.log('Fetching search data:', params.toString());
+            const res = await fetch('/api/get_search_data?' + params.toString());
+            if (!res.ok) return;
+            
+            const json = await res.json();
+            let loaded = json?.data ?? [];
+
+            // If user filled BOTH Country dropdown AND City text box, refine client-side
+            if (country && cityInput) {
+                const cLow = country.toLowerCase();
+                loaded = loaded.filter(c => {
+                    const locBlob = [c?.address, c?.location_string, c?.location, c?.destination_country].join(' ').toLowerCase();
+                    return locBlob.includes(cLow);
+                });
+            }
+
+            currentData = loaded;
+            totalRecords = json?.total ?? 0;
+            console.log('Data loaded:', currentData.length, '/', totalRecords);
+
+            document.getElementById('resultBadge').innerText = totalRecords;
+
+            const totalPages = Math.ceil(totalRecords / PER_PAGE) || 1;
+            const pagBar = document.getElementById('paginationBar');
+            if (totalPages > 1) {
+                pagBar?.classList.remove('hidden');
+                document.getElementById('pageLabel').innerText = `Page ${currentPage} of ${totalPages}`;
+                document.getElementById('prevBtn').disabled = currentPage <= 1;
+                document.getElementById('nextBtn').disabled = currentPage >= totalPages;
+            } else {
+                pagBar?.classList.add('hidden');
+            }
+            const pageInfo = document.getElementById('pageInfo');
+            if (pageInfo) pageInfo.innerText = `Showing ${currentData.length} of ${totalRecords}`;
+
+            const grid = document.getElementById('cardGrid');
+            if (!grid) return;
+            grid.innerHTML = '';
+            if (markersGroup) markersGroup.clearLayers();
+            markersMap = {};
+
+            if (currentData.length === 0) {
+                grid.innerHTML = `
+                    <div class="col-span-full flex flex-col items-center justify-center py-16 text-slate-400">
+                        <div class="text-5xl mb-3">📭</div>
+                        <p class="text-sm font-medium">No companies found. Try different filters or search for new leads.</p>
+                    </div>`;
+                return;
+            }
+
+            let bounds = [];
+
+            currentData.forEach((c, i) => {
+                if (!c) return;
+                const id = c._id ?? '';
+                const name = c.name ?? c.buyer_name ?? 'Unnamed Company';
+                const email = c.email ?? '';
+                const phone = c.phone ?? '';
+                const website = c.website ?? '';
+                const isSelected = selectedIds.has(id);
+                const address = c.address ? String(c.address).trim() : '';
+                const loc = c.location_string ?? c.location ?? c.destination_country ?? '';
+                const displayAddr = address || loc || 'Address not available';
+
+                const cats = [...normalize(c.main_categories), ...normalize(c.sub_categories)].slice(0, 2);
+                const catPills = cats.map(ct => `<span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100 truncate max-w-[140px]">${esc(ct)}</span>`).join('');
+
+                const card = document.createElement('div');
+                card.className = 'card-animate bg-white rounded-xl border border-slate-200 p-3 sm:px-4 sm:py-2.5 cursor-pointer hover:shadow-md hover:border-indigo-200 transition-all flex flex-col sm:flex-row sm:flex-wrap xl:flex-nowrap sm:items-center justify-between gap-2.5 sm:gap-3 relative group';
+                card.style.animationDelay = `${Math.min(i * 20, 250)}ms`;
+                card.style.borderLeft = '4px solid #6366f1';
+                card.onclick = () => focusMapAndOpen(id);
+
+                const selClasses = isSelected ? 'bg-indigo-500 border-indigo-500 text-white' : 'bg-white border-slate-300';
+                const selCheck = isSelected ? '<svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>' : '';
+
+                card.innerHTML = `
+                    <!-- Left: Selection Circle + Company Name + Address -->
+                    <div class="flex items-start sm:items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+                        <div onclick="toggleSelection(event, '${id}')" class="w-5 h-5 mt-0.5 sm:mt-0 rounded-full border-2 shrink-0 flex items-center justify-center cursor-pointer transition-all hover:scale-110 ${selClasses}">${selCheck}</div>
+                        <div class="min-w-0 flex-1">
+                            <h3 class="text-sm font-bold text-slate-800 truncate leading-snug" title="${esc(name)}">${esc(name)}</h3>
+                            <div class="flex items-center gap-1 text-xs text-slate-500 truncate mt-0.5" title="${esc(displayAddr)}">
+                                <span class="text-indigo-500 font-bold shrink-0">📍</span>
+                                <span class="truncate font-medium">${esc(displayAddr)}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Middle: Categories + Status Badges -->
+                    <div class="flex flex-wrap items-center gap-1.5 pl-7 sm:pl-0">
+                        ${catPills ? `<div class="flex flex-wrap gap-1 mr-1">${catPills}</div>` : ''}
+                        ${pillBadge('📧 Email', email, 'bg-emerald-50 text-emerald-700 border border-emerald-200', 'bg-slate-100 text-slate-400 border border-slate-200')}
+                        ${pillBadge('📞 Phone', phone, 'bg-blue-50 text-blue-700 border border-blue-200', 'bg-slate-100 text-slate-400 border border-slate-200')}
+                        ${pillBadge('🌐 Website', website, 'bg-purple-50 text-purple-700 border border-purple-200', 'bg-slate-100 text-slate-400 border border-slate-200')}
+                    </div>
+
+                    <!-- Right: Map & Migrate to Matrix -->
+                    <div class="flex items-center justify-end gap-2.5 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 shrink-0">
+                        <span onclick="viewOnMapOnly(event, '${id}')" class="text-[11px] text-indigo-600 hover:text-indigo-800 font-semibold flex items-center gap-1 px-2 py-1 rounded hover:bg-indigo-50">
+                            🗺️ View on Map
+                        </span>
+                        <button onclick="migrateToMatrix(event, '${id}')" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-gradient-to-r from-amber-400 to-orange-400 text-white hover:from-amber-500 hover:to-orange-500 shadow-sm hover:shadow transition-all whitespace-nowrap">→ Migrate to Matrix</button>
+                    </div>
+                `;
+                grid.appendChild(card);
+
+                let lat = typeof c.latitude === 'number' ? c.latitude : null;
+                let lng = typeof c.longitude === 'number' ? c.longitude : null;
+
+                if (lat === null || lng === null || !isFinite(lat) || !isFinite(lng)) {
+                    let fallback = resolveFallbackCoords(displayAddr);
+                    if (!fallback) fallback = resolveFallbackCoords(loc);
+                    if (fallback) {
+                        const jitter = (hashSeed(id || name) % 30 - 15) * 0.003;
+                        lat = fallback[0] + jitter;
+                        lng = fallback[1] + jitter;
+                    }
+                }
+
+                if (lat !== null && lng !== null && isFinite(lat) && isFinite(lng) && markersGroup) {
+                    try {
+                        const marker = L.marker([lat, lng]);
+                        marker.bindPopup(`
+                            <div style="min-width: 220px; font-family: inherit;">
+                                <div style="font-weight: 700; font-size: 13px; color: #0f172a; margin-bottom: 4px;">${esc(name)}</div>
+                                <div style="font-size: 11px; color: #475569; margin-bottom: 6px; line-height: 1.4;">📍 ${esc(displayAddr)}</div>
+                                ${email ? `<div style="font-size: 11px; color: #059669; margin-bottom: 2px;">📧 ${esc(email)}</div>` : ''}
+                                ${phone ? `<div style="font-size: 11px; color: #2563eb; margin-bottom: 6px;">📞 ${esc(phone)}</div>` : ''}
+                                <button onclick="openModal('${id}')" style="display:block; width:100%; text-align:center; background:#4f46e5; color:white; border:none; border-radius:6px; padding:5px 0; font-size:11px; font-weight:600; cursor:pointer; margin-top:6px;">View Full Details</button>
+                            </div>
+                        `);
+                        markersGroup.addLayer(marker);
+                        markersMap[id] = marker;
+                        bounds.push([lat, lng]);
+                    } catch (e) { console.warn('Marker error:', e); }
+                }
+            });
+
+            if (bounds.length > 0 && map) {
+                try { map.fitBounds(bounds, { padding: [50, 50], maxZoom: 13 }); }
+                catch (e) { console.warn('fitBounds error:', e); }
+            }
+        } catch (e) { console.error('loadData error:', e); }
+    }
+
+    function goPage(dir) {
+        const totalPages = Math.ceil(totalRecords / PER_PAGE) || 1;
+        if (dir === 'next' && currentPage < totalPages) currentPage++;
+        else if (dir === 'prev' && currentPage > 1) currentPage--;
+        loadData();
+        document.getElementById('listPanel')?.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function esc(s) {
+        if (!s) return '';
+        const d = document.createElement('div');
+        d.appendChild(document.createTextNode(String(s)));
+        return d.innerHTML;
+    }
+
+    window.migrateToMatrix = async function(e, id) {
+        e.stopPropagation();
+        try {
+            const res = await fetch('/api/migrate_to_matrix', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ id })
+            });
+            const result = await res.json();
+            console.log('Migrate:', result);
+            if (res.ok) { selectedIds.delete(id); loadData(); loadStats(); }
+        } catch (e) { console.error('Migration error:', e); }
+    };
+
+    let debounceTimer = null;
+    function debouncedLoad() {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => { currentPage = 1; loadData(); }, 300);
+    }
+
+    const qDesktop = document.getElementById('filterQ');
+    const qMobile = document.getElementById('filterQMobile');
+    qDesktop?.addEventListener('input', () => {
+        if (qMobile) qMobile.value = qDesktop.value;
+        debouncedLoad();
+    });
+    qMobile?.addEventListener('input', () => {
+        if (qDesktop) qDesktop.value = qMobile.value;
+        debouncedLoad();
+    });
+
+    document.getElementById('filterCity')?.addEventListener('input', debouncedLoad);
+    ['filterCountry', 'filterCategory', 'filterEmail', 'filterPhone', 'filterWebsite', 'filterSort'].forEach(id => {
+        document.getElementById(id)?.addEventListener('change', () => { currentPage = 1; loadData(); });
+    });
+
+    function resetAllFilters() {
+        if (document.getElementById('filterQ')) document.getElementById('filterQ').value = '';
+        if (document.getElementById('filterQMobile')) document.getElementById('filterQMobile').value = '';
+        if (document.getElementById('filterCountry')) document.getElementById('filterCountry').value = '';
+        if (document.getElementById('filterCity')) document.getElementById('filterCity').value = '';
+        if (document.getElementById('filterCategory')) document.getElementById('filterCategory').value = 'all';
+        if (document.getElementById('filterEmail')) document.getElementById('filterEmail').value = '';
+        if (document.getElementById('filterPhone')) document.getElementById('filterPhone').value = '';
+        if (document.getElementById('filterWebsite')) document.getElementById('filterWebsite').value = '';
+        if (document.getElementById('filterSort')) document.getElementById('filterSort').value = 'newest';
+        currentPage = 1;
+        loadData();
+    }
+
+    document.getElementById('scrapeBtn')?.addEventListener('click', async () => {
+        const loc = document.getElementById('scrapeLoc')?.value?.trim() ?? '';
+        const cat = document.getElementById('scrapeCategory')?.value ?? 'all';
+        if (!loc) { alert('Enter a location to search (e.g. Germany, Kosovo, Turkey)'); return; }
+        const btn = document.getElementById('scrapeBtn');
+        const loading = document.getElementById('loading');
+        if (btn) btn.disabled = true;
+        if (loading) loading.classList.remove('hidden');
+        try {
+            const res = await fetch('/api/search_new', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ location: loc, category: cat })
+            });
+            let data = null;
+            try {
+                data = await res.json();
+            } catch (jsonErr) {
+                throw new Error(res.status ? `Server returned status ${res.status}. Check Vercel/Render logs or environment variables.` : 'Network connection failed.');
+            }
+            console.log('Search new:', data);
+            if (!res.ok || data?.error) {
+                alert(data?.error || `Search error (HTTP ${res.status})`);
+            } else {
+                alert(data?.message ?? 'Search completed!');
+                loadData();
+                loadStats();
+            }
+        } catch (e) {
+            console.error('Search new error:', e);
+            alert(e?.message || 'Request failed. Check backend deployment and logs.');
+        } finally {
+            if (btn) btn.disabled = false;
+            if (loading) loading.classList.add('hidden');
+        }
+    });
+
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+    console.log('Discovery Search: Initializing...');
+    initMap();
+    loadStats();
+    loadData();
+    </script>
+</body>
+</html>
