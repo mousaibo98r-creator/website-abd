@@ -27,7 +27,7 @@
         .scroll-panel::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
         .scroll-panel::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
         @keyframes fadeSlideIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
-        .card-animate { animation: fadeSlideIn 0.22s ease-out both; }
+        .card-animate { animation: fadeSlideIn 0.2s ease-out both; }
         @keyframes spin { to { transform: rotate(360deg); } }
         .spinner { animation: spin 0.7s linear infinite; }
         .h-dvh-screen { height: 100vh; height: 100dvh; }
@@ -139,55 +139,18 @@
             <input type="text" id="filterQ" placeholder="Search company name..."
                 class="hidden lg:block px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 transition w-44 placeholder:text-slate-400">
             
-            <!-- Country Filter Dropdown -->
-            <select id="filterCountry" class="w-[calc(50%-4px)] sm:w-auto lg:w-40 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 text-slate-600 cursor-pointer">
+            <!-- Country Filter Dropdown (Auto-Populated with Live Counts) -->
+            <select id="filterCountry" class="w-[calc(50%-4px)] sm:w-auto lg:w-44 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 text-slate-600 cursor-pointer">
                 <option value="">🌍 Country: All</option>
-                <option value="Georgia">Georgia</option>
-                <option value="Germany">Germany</option>
-                <option value="Poland">Poland</option>
-                <option value="Turkey">Turkey</option>
-                <option value="Kosovo">Kosovo</option>
-                <option value="Albania">Albania</option>
-                <option value="Serbia">Serbia</option>
-                <option value="Bosnia">Bosnia</option>
-                <option value="Croatia">Croatia</option>
-                <option value="Romania">Romania</option>
-                <option value="Bulgaria">Bulgaria</option>
-                <option value="Greece">Greece</option>
-                <option value="Italy">Italy</option>
-                <option value="Spain">Spain</option>
-                <option value="France">France</option>
-                <option value="United Kingdom">United Kingdom</option>
-                <option value="Netherlands">Netherlands</option>
-                <option value="Belgium">Belgium</option>
-                <option value="Austria">Austria</option>
-                <option value="Switzerland">Switzerland</option>
-                <option value="Czech Republic">Czech Republic</option>
-                <option value="Hungary">Hungary</option>
-                <option value="Slovakia">Slovakia</option>
-                <option value="UAE">UAE</option>
-                <option value="Saudi Arabia">Saudi Arabia</option>
-                <option value="Qatar">Qatar</option>
-                <option value="Kuwait">Kuwait</option>
-                <option value="Jordan">Jordan</option>
-                <option value="Egypt">Egypt</option>
-                <option value="Morocco">Morocco</option>
-                <option value="United States">United States</option>
-                <option value="Canada">Canada</option>
             </select>
 
-            <!-- City Filter -->
-            <input type="text" id="filterCity" placeholder="Filter by city..."
+            <!-- City / Street Filter -->
+            <input type="text" id="filterCity" placeholder="Filter by city / address..."
                 class="w-[calc(50%-4px)] sm:w-36 lg:w-40 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 placeholder:text-slate-400">
             
-            <select id="filterCategory" class="w-[calc(50%-4px)] sm:w-auto px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 text-slate-600 cursor-pointer">
-                <option value="all">Category: All</option>
-                <option value="LED">💡 LED Profile</option>
-                <option value="Tile">🔲 Tile Trim</option>
-                <option value="Furniture">🪑 Furniture Profile</option>
-                <option value="Glass">🚿 Glass Profile</option>
-                <option value="Decorative">🎨 Decorative Profile</option>
-                <option value="Extrusion">⚙️ Extrusion</option>
+            <!-- Category Filter Dropdown (Auto-Populated from Real Database Tags + Smart Groups) -->
+            <select id="filterCategory" class="w-[calc(50%-4px)] sm:w-auto lg:w-52 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 text-slate-600 cursor-pointer">
+                <option value="all">🏷️ Category: All</option>
             </select>
 
             <select id="filterEmail" class="w-[calc(50%-4px)] sm:w-auto px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 text-slate-600 cursor-pointer">
@@ -208,6 +171,7 @@
             <select id="filterSort" class="w-full sm:w-auto px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 text-slate-600 cursor-pointer">
                 <option value="newest">Newest First</option>
                 <option value="oldest">Oldest First</option>
+                <option value="name_asc">Name (A → Z)</option>
             </select>
             
             <button id="resetFiltersBtn" onclick="resetAllFilters()" title="Reset all filters" class="hidden lg:inline-flex px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">
@@ -294,14 +258,89 @@
     </div>
 
     <script>
+    /* ==============================================================
+       Discovery Search — 100% Reliable Client + Server Filter Engine
+       ============================================================== */
+
     let map = null;
     let markersGroup = null;
     let markersMap = {};
     let selectedIds = new Set();
+
+    let allDatabaseRecords = [];
+    let filteredRecords = [];
     let currentData = [];
     let currentPage = 1;
-    let totalRecords = 0;
     const PER_PAGE = 100;
+
+    // Country aliases & city-to-country mapping
+    const COUNTRY_KEYWORDS = {
+        'Georgia': ['georgia', 'tbilisi', 'batumi', 'kutaisi', 'rustavi'],
+        'Germany': ['germany', 'deutschland', 'berlin', 'munich', 'münchen', 'frankfurt', 'hamburg', 'stuttgart', 'düsseldorf', 'dusseldorf', 'cologne', 'köln', 'dortmund', 'essen', 'velbert', 'wuppertal', 'solingen', 'hagen', 'iserlohn'],
+        'Poland': ['poland', 'polska', 'warsaw', 'warszawa', 'krakow', 'kraków', 'wroclaw', 'wrocław', 'poznan', 'poznań', 'katowice', 'gliwice', 'gdansk', 'gdańsk', 'lodz', 'łódź', 'kety', 'kęty', 'bielsko-biala'],
+        'Turkey': ['turkey', 'türkiye', 'turkiye', 'istanbul', 'ankara', 'izmir', 'bursa', 'antalya', 'konya', 'kocaeli', 'gebze', 'sakarya', 'tekirdag', 'corlu', 'cerkezkoy'],
+        'Kosovo': ['kosovo', 'pristina', 'prishtina', 'prizren', 'peja', 'ferizaj'],
+        'Albania': ['albania', 'tirana', 'tirane', 'durres', 'vlore'],
+        'Serbia': ['serbia', 'belgrade', 'beograd', 'novi sad', 'nis'],
+        'Bosnia': ['bosnia', 'sarajevo', 'mostar', 'banja luka', 'tuzla'],
+        'Croatia': ['croatia', 'hrvatska', 'zagreb', 'split', 'rijeka'],
+        'Romania': ['romania', 'bucharest', 'bucuresti', 'cluj', 'timisoara', 'iasi'],
+        'Bulgaria': ['bulgaria', 'sofia', 'plovdiv', 'varna'],
+        'Greece': ['greece', 'athens', 'thessaloniki'],
+        'Italy': ['italy', 'italia', 'milan', 'milano', 'rome', 'roma', 'brescia', 'turin', 'torino', 'bologna'],
+        'Spain': ['spain', 'españa', 'espana', 'madrid', 'barcelona', 'valencia', 'alicante', 'seville'],
+        'France': ['france', 'paris', 'lyon', 'marseille', 'toulouse'],
+        'United Kingdom': ['united kingdom', 'uk', 'england', 'britain', 'london', 'birmingham', 'manchester', 'telford', 'leeds', 'glasgow'],
+        'Netherlands': ['netherlands', 'holland', 'amsterdam', 'rotterdam', 'utrecht', 'eindhoven'],
+        'Belgium': ['belgium', 'brussels', 'antwerp', 'ghent'],
+        'Austria': ['austria', 'österreich', 'vienna', 'wien', 'graz', 'linz'],
+        'Switzerland': ['switzerland', 'schweiz', 'zurich', 'zürich', 'geneva', 'basel'],
+        'Czech Republic': ['czech republic', 'czechia', 'prague', 'praha', 'brno', 'ostrava'],
+        'Hungary': ['hungary', 'budapest', 'debrecen'],
+        'Slovakia': ['slovakia', 'bratislava', 'kosice'],
+        'UAE': ['united arab emirates', 'uae', 'dubai', 'abu dhabi', 'sharjah', 'al quoz', 'jafza'],
+        'Saudi Arabia': ['saudi arabia', 'ksa', 'riyadh', 'jeddah', 'dammam', 'jubail'],
+        'Qatar': ['qatar', 'doha'],
+        'Kuwait': ['kuwait'],
+        'Jordan': ['jordan', 'amman', 'zarqa', 'irbid', 'aqaba'],
+        'Egypt': ['egypt', 'cairo', 'alexandria', 'giza'],
+        'Morocco': ['morocco', 'casablanca', 'rabat', 'tangier', 'marrakech'],
+        'United States': ['united states', 'usa', 'u.s.', 'chicago', 'new york', 'los angeles', 'houston', 'dallas', 'cleveland', 'detroit', 'elk grove'],
+        'Canada': ['canada', 'toronto', 'vancouver', 'montreal', 'calgary'],
+        'China': ['china', 'foshan', 'guangzhou', 'shenzhen', 'dongguan', 'shanghai']
+    };
+
+    // Smart Category Groups (Broad industry buckets)
+    const CATEGORY_GROUPS = {
+        'group:windows_doors': {
+            label: '🪟 Windows, Doors & Sliding Systems',
+            keywords: ['window', 'door', 'sliding', 'casement', 'joinery', 'fenestration', 'frame', 'shutter', 'roller', 'mosquito', 'fly screen', 'thermal break', 'glazing']
+        },
+        'group:facades_outdoor': {
+            label: '🏢 Facades, Pergolas & Cladding',
+            keywords: ['facade', 'façade', 'curtain wall', 'pergola', 'cladding', 'acp', 'composite', 'ventilated', 'canopy', 'awning', 'veranda', 'sunroom', 'wintergarden', 'louvre', 'brise']
+        },
+        'group:extrusion_profiles': {
+            label: '⚙️ Aluminium Profiles & Extrusions',
+            keywords: ['extrusion', 'extruded', 'profile', 'billet', 'alloy', 'anodiz', 'powder coat', 'industrial', 'section', 'bar', 'tube', 'pipe', 'sheet', 'coil']
+        },
+        'group:glass_railings': {
+            label: '🚿 Glass, Railings & Shower Systems',
+            keywords: ['glass', 'shower', 'railing', 'balustrade', 'handrail', 'partition', 'fence', 'fencing', 'gate', 'balcony', 'bathroom']
+        },
+        'group:led_lighting': {
+            label: '💡 LED & Lighting Profiles',
+            keywords: ['led', 'light', 'lighting', 'luminaire', 'strip', 'channel', 'diffuser', 'illumination']
+        },
+        'group:tile_flooring': {
+            label: '🔲 Tile Trim, Flooring & Skirting',
+            keywords: ['tile', 'trim', 'edging', 'floor', 'stair', 'nosing', 'skirting', 'transition', 'carpet', 'expansion']
+        },
+        'group:furniture_interior': {
+            label: '🪑 Furniture, Kitchen & Interior',
+            keywords: ['furniture', 'kitchen', 'wardrobe', 'cabinet', 'handle', 'closet', 'drawer', 'shelf', 'interior', 'decorative', 'wall', 'ceiling', 'cornice']
+        }
+    };
 
     function toggleMobileSection(id) {
         const el = document.getElementById(id);
@@ -353,12 +392,11 @@
                 attribution: '&copy; OpenStreetMap'
             }).addTo(map);
             markersGroup = L.layerGroup().addTo(map);
-            console.log('Map initialized');
         } catch (e) { console.error('Map init error:', e); }
     }
 
     const KNOWN_COORDS = {
-        'georgia': [41.7151, 44.8271], 'tbilisi': [41.7151, 44.8271], 'batumi': [41.6168, 41.6367],
+        'georgia': [41.7151, 44.8271], 'tbilisi': [41.7151, 44.8271], 'batumi': [41.6168, 41.6367], 'kutaisi': [42.2662, 42.7180],
         'poland': [51.9194, 19.1451], 'polska': [51.9194, 19.1451],
         'kety': [49.8868, 19.2274], 'kęty': [49.8868, 19.2274],
         'bielsko-biala': [49.8225, 19.0444], 'bielsko-biała': [49.8225, 19.0444],
@@ -480,22 +518,56 @@
         }
     }
 
+    const INVALID_VALUES = new Set(['', 'n/a', 'na', 'none', 'null', 'undefined', '-', 'not available', 'unknown', '[]']);
     function normalize(val) {
         if (val == null) return [];
-        if (Array.isArray(val)) return val.map(v => String(v ?? '').trim()).filter(Boolean);
+        if (Array.isArray(val)) {
+            return val.flatMap(v => normalize(v));
+        }
+        if (typeof val === 'object') {
+            return Object.values(val).flatMap(v => normalize(v));
+        }
         if (typeof val === 'string') {
             const s = val.trim();
+            if (INVALID_VALUES.has(s.toLowerCase())) return [];
             if (s.startsWith('[')) {
                 try {
                     const parsed = JSON.parse(s);
-                    if (Array.isArray(parsed)) return parsed.map(v => String(v ?? '').trim()).filter(Boolean);
+                    if (Array.isArray(parsed)) return normalize(parsed);
                 } catch (e) {}
             }
-            return s ? [s] : [];
+            return [s];
         }
         const str = String(val).trim();
-        return str ? [str] : [];
+        return INVALID_VALUES.has(str.toLowerCase()) ? [] : [str];
     }
+
+    // Extracts all category tags for a company regardless of which field name was used in DB
+    function extractCompanyCategories(c) {
+        if (!c) return [];
+        const raw = [
+            ...normalize(c.main_categories),
+            ...normalize(c.sub_categories),
+            ...normalize(c.categories),
+            ...normalize(c.category),
+            ...normalize(c.products),
+            ...normalize(c.tags),
+            ...normalize(c.scrape_category)
+        ];
+        // Split comma/semicolon separated strings and deduplicate
+        const unique = new Map();
+        raw.forEach(item => {
+            item.split(/[,;|]/).forEach(part => {
+                const clean = part.trim();
+                if (clean && clean.length > 1 && !INVALID_VALUES.has(clean.toLowerCase())) {
+                    const key = clean.toLowerCase();
+                    if (!unique.has(key)) unique.set(key, clean);
+                }
+            });
+        });
+        return Array.from(unique.values());
+    }
+
     function hasValue(val) { return normalize(val).length > 0; }
     function firstVal(val) { const a = normalize(val); return a.length ? a[0] : ''; }
     const NA = '<span class="italic text-slate-400">Not Available</span>';
@@ -513,7 +585,7 @@
     function renderWebsites(val) {
         const arr = normalize(val);
         if (!arr.length) return NA;
-        return arr.map(w => `<a href="${w}" target="_blank" class="text-indigo-600 hover:underline">${esc(w)}</a>`).join('<br>');
+        return arr.map(w => `<a href="${w.startsWith('http') ? w : 'https://' + w}" target="_blank" class="text-indigo-600 hover:underline">${esc(w)}</a>`).join('<br>');
     }
     function renderAddresses(val) {
         const arr = normalize(val);
@@ -522,24 +594,22 @@
     }
 
     function openModal(id) {
-        const c = currentData.find(x => (x?._id ?? '') === id);
+        const c = allDatabaseRecords.find(x => (x?._id ?? '') === id) || currentData.find(x => (x?._id ?? '') === id);
         if (!c) return;
         const el = (i) => document.getElementById(i);
 
         el('modalName').innerText = firstVal(c?.name) || firstVal(c?.buyer_name) || 'Unknown';
-        el('modalLocation').innerText = '📍 ' + (firstVal(c?.location_string) || firstVal(c?.location) || firstVal(c?.destination_country) || 'Unknown');
+        el('modalLocation').innerText = '📍 ' + (firstVal(c?.location_string) || firstVal(c?.location) || firstVal(c?.destination_country) || firstVal(c?.address) || 'Unknown');
 
-        const lat = c?.latitude;
-        const lng = c?.longitude;
-        if (typeof lat === 'number' && typeof lng === 'number' && isFinite(lat) && isFinite(lng) && map) {
+        if (markersMap[id] && map) {
             try {
-                map.flyTo([lat, lng], 13, { duration: 0.8 });
-                if (markersMap[id]) setTimeout(() => markersMap[id].openPopup(), 400);
-            } catch (err) { console.warn('Map flyTo error:', err); }
+                const m = markersMap[id];
+                map.flyTo(m.getLatLng(), 13, { duration: 0.8 });
+                setTimeout(() => m.openPopup(), 400);
+            } catch (err) {}
         }
-        setTimeout(() => { if (map) map.invalidateSize(); }, 200);
 
-        const allCats = [...normalize(c?.main_categories), ...normalize(c?.sub_categories)];
+        const allCats = extractCompanyCategories(c);
         if (allCats.length) {
             el('modalCategories').innerHTML = allCats.map(ct => `<span class="px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs font-semibold border border-indigo-100">${esc(ct)}</span>`).join('');
         } else {
@@ -553,11 +623,11 @@
         el('modalAddress').innerHTML = renderAddresses(c?.address);
 
         const socials = [];
-        if (c?.facebook) socials.push(`<a href="${firstVal(c.facebook)}" target="_blank" class="px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-medium hover:bg-blue-100 transition">Facebook</a>`);
-        if (c?.twitter) socials.push(`<a href="${firstVal(c.twitter)}" target="_blank" class="px-2.5 py-1 bg-sky-50 text-sky-700 rounded-full text-xs font-medium hover:bg-sky-100 transition">Twitter</a>`);
-        if (c?.linkedin) socials.push(`<a href="${firstVal(c.linkedin)}" target="_blank" class="px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs font-medium hover:bg-indigo-100 transition">LinkedIn</a>`);
-        if (c?.instagram) socials.push(`<a href="${firstVal(c.instagram)}" target="_blank" class="px-2.5 py-1 bg-pink-50 text-pink-700 rounded-full text-xs font-medium hover:bg-pink-100 transition">Instagram</a>`);
-        if (c?.youtube) socials.push(`<a href="${firstVal(c.youtube)}" target="_blank" class="px-2.5 py-1 bg-red-50 text-red-700 rounded-full text-xs font-medium hover:bg-red-100 transition">YouTube</a>`);
+        if (hasValue(c?.facebook)) socials.push(`<a href="${firstVal(c.facebook)}" target="_blank" class="px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-medium hover:bg-blue-100 transition">Facebook</a>`);
+        if (hasValue(c?.twitter)) socials.push(`<a href="${firstVal(c.twitter)}" target="_blank" class="px-2.5 py-1 bg-sky-50 text-sky-700 rounded-full text-xs font-medium hover:bg-sky-100 transition">Twitter</a>`);
+        if (hasValue(c?.linkedin)) socials.push(`<a href="${firstVal(c.linkedin)}" target="_blank" class="px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs font-medium hover:bg-indigo-100 transition">LinkedIn</a>`);
+        if (hasValue(c?.instagram)) socials.push(`<a href="${firstVal(c.instagram)}" target="_blank" class="px-2.5 py-1 bg-pink-50 text-pink-700 rounded-full text-xs font-medium hover:bg-pink-100 transition">Instagram</a>`);
+        if (hasValue(c?.youtube)) socials.push(`<a href="${firstVal(c.youtube)}" target="_blank" class="px-2.5 py-1 bg-red-50 text-red-700 rounded-full text-xs font-medium hover:bg-red-100 transition">YouTube</a>`);
         el('modalSocials').innerHTML = socials.length ? socials.join('') : NA;
 
         document.getElementById('companyModal').classList.remove('hidden');
@@ -574,12 +644,155 @@
             : `<span class="px-2.5 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap ${colorNo}">${label}</span>`;
     }
 
+    function detectCompanyCountries(c) {
+        const locBlob = [
+            firstVal(c?.country),
+            firstVal(c?.destination_country),
+            firstVal(c?.location_string),
+            firstVal(c?.location),
+            firstVal(c?.address)
+        ].filter(Boolean).join(' ').toLowerCase();
+
+        const matchedCountries = new Set();
+        for (const [countryName, keywords] of Object.entries(COUNTRY_KEYWORDS)) {
+            for (const kw of keywords) {
+                const re = new RegExp('\\b' + kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i');
+                if (re.test(locBlob)) {
+                    matchedCountries.add(countryName);
+                    break;
+                }
+            }
+        }
+        const rawLoc = firstVal(c?.location_string) || firstVal(c?.destination_country);
+        if (rawLoc && rawLoc.length > 2 && rawLoc.length < 28 && !rawLoc.includes(',')) {
+            matchedCountries.add(rawLoc.trim());
+        }
+        return Array.from(matchedCountries);
+    }
+
+    function populateCountryDropdown(records) {
+        const select = document.getElementById('filterCountry');
+        if (!select) return;
+        const currentSelection = select.value;
+
+        const countryCounts = {};
+        Object.keys(COUNTRY_KEYWORDS).forEach(c => { countryCounts[c] = 0; });
+
+        records.forEach(r => {
+            const countries = detectCompanyCountries(r);
+            countries.forEach(cName => {
+                countryCounts[cName] = (countryCounts[cName] || 0) + 1;
+            });
+        });
+
+        const sortedCountries = Object.keys(countryCounts).sort((a, b) => {
+            if ((countryCounts[b] > 0) !== (countryCounts[a] > 0)) {
+                return countryCounts[b] - countryCounts[a];
+            }
+            return a.localeCompare(b);
+        });
+
+        select.innerHTML = '<option value="">🌍 Country: All</option>';
+        sortedCountries.forEach(cName => {
+            const count = countryCounts[cName] || 0;
+            const opt = document.createElement('option');
+            opt.value = cName;
+            opt.textContent = count > 0 ? `${cName} (${count})` : cName;
+            select.appendChild(opt);
+        });
+
+        select.value = currentSelection;
+    }
+
+    // Checks if a company record matches a specific category filter value
+    function companyMatchesCategory(c, catValue) {
+        if (!catValue || catValue === 'all') return true;
+
+        const companyTags = extractCompanyCategories(c).map(t => t.toLowerCase());
+        const fullBlob = [
+            ...companyTags,
+            firstVal(c.description),
+            firstVal(c.name),
+            firstVal(c.buyer_name)
+        ].join(' ').toLowerCase();
+
+        // 1. Check if user selected one of the broad Category Groups
+        if (catValue.startsWith('group:') && CATEGORY_GROUPS[catValue]) {
+            const keywords = CATEGORY_GROUPS[catValue].keywords;
+            return keywords.some(kw => fullBlob.includes(kw));
+        }
+
+        // 2. Check if user selected an exact scraped tag (or substring)
+        const target = catValue.toLowerCase();
+        return companyTags.some(t => t === target || t.includes(target)) || fullBlob.includes(target);
+    }
+
+    // Auto-populates the Category Dropdown with Smart Groups + Actual Database Tags (with live counts!)
+    function populateCategoryDropdown(records) {
+        const select = document.getElementById('filterCategory');
+        if (!select) return;
+        const currentSelection = select.value || 'all';
+
+        select.innerHTML = '<option value="all">🏷️ Category: All</option>';
+
+        // 1. Add Smart Groups with live counts
+        const groupOptGroup = document.createElement('optgroup');
+        groupOptGroup.label = 'Product Groups';
+        for (const [groupKey, groupObj] of Object.entries(CATEGORY_GROUPS)) {
+            const count = records.filter(r => companyMatchesCategory(r, groupKey)).length;
+            const opt = document.createElement('option');
+            opt.value = groupKey;
+            opt.textContent = `${groupObj.label} (${count})`;
+            groupOptGroup.appendChild(opt);
+        }
+        select.appendChild(groupOptGroup);
+
+        // 2. Extract every actual category tag from the database and count how many companies have it
+        const tagCounts = new Map();
+        const tagDisplayNames = new Map();
+
+        records.forEach(r => {
+            const tags = extractCompanyCategories(r);
+            tags.forEach(t => {
+                const key = t.toLowerCase();
+                tagCounts.set(key, (tagCounts.get(key) || 0) + 1);
+                if (!tagDisplayNames.has(key)) tagDisplayNames.set(key, t);
+            });
+        });
+
+        if (tagCounts.size > 0) {
+            const exactOptGroup = document.createElement('optgroup');
+            exactOptGroup.label = 'Exact Database Tags';
+
+            const sortedTags = Array.from(tagCounts.entries()).sort((a, b) => {
+                if (b[1] !== a[1]) return b[1] - a[1];
+                return a[0].localeCompare(b[0]);
+            });
+
+            sortedTags.forEach(([key, count]) => {
+                const display = tagDisplayNames.get(key);
+                const opt = document.createElement('option');
+                opt.value = key;
+                opt.textContent = `${display} (${count})`;
+                exactOptGroup.appendChild(opt);
+            });
+
+            select.appendChild(exactOptGroup);
+        }
+
+        // Restore previous selection if still valid
+        if (Array.from(select.options).some(o => o.value === currentSelection)) {
+            select.value = currentSelection;
+        } else {
+            select.value = 'all';
+        }
+    }
+
     async function loadStats() {
         try {
             const res = await fetch('/api/get_search_stats');
             if (!res.ok) return;
             const s = await res.json();
-            console.log('Search stats:', s);
             document.getElementById('statTotal').innerText = s?.total ?? 0;
             document.getElementById('statEmail').innerText = s?.with_email ?? 0;
             document.getElementById('statPhone').innerText = s?.with_phone ?? 0;
@@ -587,174 +800,249 @@
         } catch (e) { console.error('Stats error:', e); }
     }
 
-    async function loadData() {
-        const q = document.getElementById('filterQ')?.value ?? '';
-        const country = document.getElementById('filterCountry')?.value ?? '';
-        const cityInput = document.getElementById('filterCity')?.value ?? '';
-        // Use exact original `city` parameter so backend query never breaks!
-        const city = cityInput || country || '';
+    async function fetchAllFromServer() {
+        try {
+            const params = new URLSearchParams({
+                q: '', city: '', category: 'all', has_email: '', has_phone: '', has_website: '', sort: 'newest', page: 1, per_page: 2500
+            });
+            const res = await fetch('/api/get_search_data?' + params.toString());
+            if (!res.ok) return;
+            const json = await res.json();
+            allDatabaseRecords = json?.data ?? [];
+            populateCountryDropdown(allDatabaseRecords);
+            populateCategoryDropdown(allDatabaseRecords);
+            applyFiltersAndRender();
+        } catch (e) {
+            console.error('Error loading search records:', e);
+        }
+    }
 
-        const category = document.getElementById('filterCategory')?.value ?? '';
+    function applyFiltersAndRender() {
+        const q = (document.getElementById('filterQ')?.value ?? '').trim().toLowerCase();
+        const country = (document.getElementById('filterCountry')?.value ?? '').trim();
+        const city = (document.getElementById('filterCity')?.value ?? '').trim().toLowerCase();
+        const category = document.getElementById('filterCategory')?.value ?? 'all';
         const has_email = document.getElementById('filterEmail')?.value ?? '';
         const has_phone = document.getElementById('filterPhone')?.value ?? '';
         const has_website = document.getElementById('filterWebsite')?.value ?? '';
         const sort = document.getElementById('filterSort')?.value ?? 'newest';
 
-        // EXACT original URLSearchParams signature expected by your backend
-        const params = new URLSearchParams({ q, city, category, has_email, has_phone, has_website, sort, page: currentPage, per_page: PER_PAGE });
+        filteredRecords = allDatabaseRecords.filter(c => {
+            if (!c) return false;
 
-        try {
-            console.log('Fetching search data:', params.toString());
-            const res = await fetch('/api/get_search_data?' + params.toString());
-            if (!res.ok) return;
-            
-            const json = await res.json();
-            let loaded = json?.data ?? [];
-
-            // If user filled BOTH Country dropdown AND City text box, refine client-side
-            if (country && cityInput) {
-                const cLow = country.toLowerCase();
-                loaded = loaded.filter(c => {
-                    const locBlob = [c?.address, c?.location_string, c?.location, c?.destination_country].join(' ').toLowerCase();
-                    return locBlob.includes(cLow);
-                });
+            // 1. Company Name / Keyword Search
+            if (q) {
+                const nameBlob = [
+                    firstVal(c.name),
+                    firstVal(c.buyer_name),
+                    firstVal(c.description),
+                    ...extractCompanyCategories(c)
+                ].join(' ').toLowerCase();
+                if (!nameBlob.includes(q)) return false;
             }
 
-            currentData = loaded;
-            totalRecords = json?.total ?? 0;
-            console.log('Data loaded:', currentData.length, '/', totalRecords);
-
-            document.getElementById('resultBadge').innerText = totalRecords;
-
-            const totalPages = Math.ceil(totalRecords / PER_PAGE) || 1;
-            const pagBar = document.getElementById('paginationBar');
-            if (totalPages > 1) {
-                pagBar?.classList.remove('hidden');
-                document.getElementById('pageLabel').innerText = `Page ${currentPage} of ${totalPages}`;
-                document.getElementById('prevBtn').disabled = currentPage <= 1;
-                document.getElementById('nextBtn').disabled = currentPage >= totalPages;
-            } else {
-                pagBar?.classList.add('hidden');
-            }
-            const pageInfo = document.getElementById('pageInfo');
-            if (pageInfo) pageInfo.innerText = `Showing ${currentData.length} of ${totalRecords}`;
-
-            const grid = document.getElementById('cardGrid');
-            if (!grid) return;
-            grid.innerHTML = '';
-            if (markersGroup) markersGroup.clearLayers();
-            markersMap = {};
-
-            if (currentData.length === 0) {
-                grid.innerHTML = `
-                    <div class="col-span-full flex flex-col items-center justify-center py-16 text-slate-400">
-                        <div class="text-5xl mb-3">📭</div>
-                        <p class="text-sm font-medium">No companies found. Try different filters or search for new leads.</p>
-                    </div>`;
-                return;
+            // 2. Country Filter
+            if (country) {
+                const companyCountries = detectCompanyCountries(c).map(x => x.toLowerCase());
+                const locBlob = [c.address, c.location_string, c.location, c.destination_country, c.country].join(' ').toLowerCase();
+                const countryLow = country.toLowerCase();
+                const matched = companyCountries.includes(countryLow) || locBlob.includes(countryLow);
+                if (!matched) return false;
             }
 
-            let bounds = [];
+            // 3. City / Street Filter
+            if (city) {
+                const addrBlob = [
+                    firstVal(c.address),
+                    firstVal(c.location_string),
+                    firstVal(c.location),
+                    firstVal(c.destination_country)
+                ].join(' ').toLowerCase();
+                if (!addrBlob.includes(city)) return false;
+            }
 
-            currentData.forEach((c, i) => {
-                if (!c) return;
-                const id = c._id ?? '';
-                const name = c.name ?? c.buyer_name ?? 'Unnamed Company';
-                const email = c.email ?? '';
-                const phone = c.phone ?? '';
-                const website = c.website ?? '';
-                const isSelected = selectedIds.has(id);
-                const address = c.address ? String(c.address).trim() : '';
-                const loc = c.location_string ?? c.location ?? c.destination_country ?? '';
-                const displayAddr = address || loc || 'Address not available';
+            // 4. Category Filter (Matches Smart Groups AND Exact Database Tags)
+            if (category && category !== 'all') {
+                if (!companyMatchesCategory(c, category)) return false;
+            }
 
-                const cats = [...normalize(c.main_categories), ...normalize(c.sub_categories)].slice(0, 2);
-                const catPills = cats.map(ct => `<span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100 truncate max-w-[140px]">${esc(ct)}</span>`).join('');
+            // 5. Email Filter
+            if (has_email === 'true' && !hasValue(c.email)) return false;
+            if (has_email === 'false' && hasValue(c.email)) return false;
 
-                const card = document.createElement('div');
-                card.className = 'card-animate bg-white rounded-xl border border-slate-200 p-3 sm:px-4 sm:py-2.5 cursor-pointer hover:shadow-md hover:border-indigo-200 transition-all flex flex-col sm:flex-row sm:flex-wrap xl:flex-nowrap sm:items-center justify-between gap-2.5 sm:gap-3 relative group';
-                card.style.animationDelay = `${Math.min(i * 20, 250)}ms`;
-                card.style.borderLeft = '4px solid #6366f1';
-                card.onclick = () => focusMapAndOpen(id);
+            // 6. Phone Filter
+            if (has_phone === 'true' && !hasValue(c.phone)) return false;
+            if (has_phone === 'false' && hasValue(c.phone)) return false;
 
-                const selClasses = isSelected ? 'bg-indigo-500 border-indigo-500 text-white' : 'bg-white border-slate-300';
-                const selCheck = isSelected ? '<svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>' : '';
+            // 7. Website Filter
+            if (has_website === 'true' && !hasValue(c.website)) return false;
+            if (has_website === 'false' && hasValue(c.website)) return false;
 
-                card.innerHTML = `
-                    <!-- Left: Selection Circle + Company Name + Address -->
-                    <div class="flex items-start sm:items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
-                        <div onclick="toggleSelection(event, '${id}')" class="w-5 h-5 mt-0.5 sm:mt-0 rounded-full border-2 shrink-0 flex items-center justify-center cursor-pointer transition-all hover:scale-110 ${selClasses}">${selCheck}</div>
-                        <div class="min-w-0 flex-1">
-                            <h3 class="text-sm font-bold text-slate-800 truncate leading-snug" title="${esc(name)}">${esc(name)}</h3>
-                            <div class="flex items-center gap-1 text-xs text-slate-500 truncate mt-0.5" title="${esc(displayAddr)}">
-                                <span class="text-indigo-500 font-bold shrink-0">📍</span>
-                                <span class="truncate font-medium">${esc(displayAddr)}</span>
-                            </div>
+            return true;
+        });
+
+        // 8. Sorting
+        if (sort === 'oldest') {
+            filteredRecords.reverse();
+        } else if (sort === 'name_asc') {
+            filteredRecords.sort((a, b) => {
+                const nA = (firstVal(a.name) || firstVal(a.buyer_name) || '').toLowerCase();
+                const nB = (firstVal(b.name) || firstVal(b.buyer_name) || '').toLowerCase();
+                return nA.localeCompare(nB);
+            });
+        }
+
+        const totalFiltered = filteredRecords.length;
+        document.getElementById('resultBadge').innerText = totalFiltered;
+
+        const totalPages = Math.ceil(totalFiltered / PER_PAGE) || 1;
+        if (currentPage > totalPages) currentPage = 1;
+        const startIdx = (currentPage - 1) * PER_PAGE;
+        currentData = filteredRecords.slice(startIdx, startIdx + PER_PAGE);
+
+        const pagBar = document.getElementById('paginationBar');
+        if (totalPages > 1) {
+            pagBar?.classList.remove('hidden');
+            document.getElementById('pageLabel').innerText = `Page ${currentPage} of ${totalPages}`;
+            document.getElementById('prevBtn').disabled = currentPage <= 1;
+            document.getElementById('nextBtn').disabled = currentPage >= totalPages;
+        } else {
+            pagBar?.classList.add('hidden');
+        }
+
+        const pageInfo = document.getElementById('pageInfo');
+        if (pageInfo) pageInfo.innerText = `Showing ${currentData.length} of ${totalFiltered}`;
+
+        renderCardsAndMarkers();
+    }
+
+    // Clicking a category badge on any card immediately filters by that category!
+    function filterByTag(e, tagValue) {
+        e.stopPropagation();
+        const select = document.getElementById('filterCategory');
+        if (!select) return;
+        const key = String(tagValue).toLowerCase();
+        select.value = key;
+        currentPage = 1;
+        applyFiltersAndRender();
+    }
+
+    function renderCardsAndMarkers() {
+        const grid = document.getElementById('cardGrid');
+        if (!grid) return;
+        grid.innerHTML = '';
+        if (markersGroup) markersGroup.clearLayers();
+        markersMap = {};
+
+        if (currentData.length === 0) {
+            grid.innerHTML = `
+                <div class="col-span-full flex flex-col items-center justify-center py-16 text-slate-400">
+                    <div class="text-5xl mb-3">📭</div>
+                    <p class="text-sm font-medium">No companies match your current filters.</p>
+                    <button onclick="resetAllFilters()" class="mt-3 px-4 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-semibold hover:bg-indigo-100 transition">↺ Reset All Filters</button>
+                </div>`;
+            return;
+        }
+
+        let bounds = [];
+
+        currentData.forEach((c, i) => {
+            if (!c) return;
+            const id = c._id ?? '';
+            const name = firstVal(c.name) || firstVal(c.buyer_name) || 'Unnamed Company';
+            const email = c.email ?? '';
+            const phone = c.phone ?? '';
+            const website = c.website ?? '';
+            const isSelected = selectedIds.has(id);
+            const address = firstVal(c.address);
+            const loc = firstVal(c.location_string) || firstVal(c.location) || firstVal(c.destination_country);
+            const displayAddr = address || loc || 'Address not available';
+
+            const cats = extractCompanyCategories(c).slice(0, 2);
+            const catPills = cats.map(ct => `<span onclick="filterByTag(event, '${esc(ct)}')" title="Click to filter by ${esc(ct)}" class="px-2 py-0.5 rounded text-[11px] font-semibold bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-100 truncate max-w-[150px] cursor-pointer transition">${esc(ct)}</span>`).join('');
+
+            const card = document.createElement('div');
+            card.className = 'card-animate bg-white rounded-xl border border-slate-200 p-3 sm:px-4 sm:py-2.5 cursor-pointer hover:shadow-md hover:border-indigo-200 transition-all flex flex-col sm:flex-row sm:flex-wrap xl:flex-nowrap sm:items-center justify-between gap-2.5 sm:gap-3 relative group';
+            card.style.animationDelay = `${Math.min(i * 15, 200)}ms`;
+            card.style.borderLeft = '4px solid #6366f1';
+            card.onclick = () => focusMapAndOpen(id);
+
+            const selClasses = isSelected ? 'bg-indigo-500 border-indigo-500 text-white' : 'bg-white border-slate-300';
+            const selCheck = isSelected ? '<svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>' : '';
+
+            card.innerHTML = `
+                <!-- Left: Selection Circle + Company Name + Address -->
+                <div class="flex items-start sm:items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+                    <div onclick="toggleSelection(event, '${id}')" class="w-5 h-5 mt-0.5 sm:mt-0 rounded-full border-2 shrink-0 flex items-center justify-center cursor-pointer transition-all hover:scale-110 ${selClasses}">${selCheck}</div>
+                    <div class="min-w-0 flex-1">
+                        <h3 class="text-sm font-bold text-slate-800 truncate leading-snug" title="${esc(name)}">${esc(name)}</h3>
+                        <div class="flex items-center gap-1 text-xs text-slate-500 truncate mt-0.5" title="${esc(displayAddr)}">
+                            <span class="text-indigo-500 font-bold shrink-0">📍</span>
+                            <span class="truncate font-medium">${esc(displayAddr)}</span>
                         </div>
                     </div>
+                </div>
 
-                    <!-- Middle: Categories + Status Badges -->
-                    <div class="flex flex-wrap items-center gap-1.5 pl-7 sm:pl-0">
-                        ${catPills ? `<div class="flex flex-wrap gap-1 mr-1">${catPills}</div>` : ''}
-                        ${pillBadge('📧 Email', email, 'bg-emerald-50 text-emerald-700 border border-emerald-200', 'bg-slate-100 text-slate-400 border border-slate-200')}
-                        ${pillBadge('📞 Phone', phone, 'bg-blue-50 text-blue-700 border border-blue-200', 'bg-slate-100 text-slate-400 border border-slate-200')}
-                        ${pillBadge('🌐 Website', website, 'bg-purple-50 text-purple-700 border border-purple-200', 'bg-slate-100 text-slate-400 border border-slate-200')}
-                    </div>
+                <!-- Middle: Categories + Status Badges -->
+                <div class="flex flex-wrap items-center gap-1.5 pl-7 sm:pl-0">
+                    ${catPills ? `<div class="flex flex-wrap gap-1 mr-1">${catPills}</div>` : ''}
+                    ${pillBadge('📧 Email', email, 'bg-emerald-50 text-emerald-700 border border-emerald-200', 'bg-slate-100 text-slate-400 border border-slate-200')}
+                    ${pillBadge('📞 Phone', phone, 'bg-blue-50 text-blue-700 border border-blue-200', 'bg-slate-100 text-slate-400 border border-slate-200')}
+                    ${pillBadge('🌐 Website', website, 'bg-purple-50 text-purple-700 border border-purple-200', 'bg-slate-100 text-slate-400 border border-slate-200')}
+                </div>
 
-                    <!-- Right: Map & Migrate to Matrix -->
-                    <div class="flex items-center justify-end gap-2.5 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 shrink-0">
-                        <span onclick="viewOnMapOnly(event, '${id}')" class="text-[11px] text-indigo-600 hover:text-indigo-800 font-semibold flex items-center gap-1 px-2 py-1 rounded hover:bg-indigo-50">
-                            🗺️ View on Map
-                        </span>
-                        <button onclick="migrateToMatrix(event, '${id}')" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-gradient-to-r from-amber-400 to-orange-400 text-white hover:from-amber-500 hover:to-orange-500 shadow-sm hover:shadow transition-all whitespace-nowrap">→ Migrate to Matrix</button>
-                    </div>
-                `;
-                grid.appendChild(card);
+                <!-- Right: Map & Migrate to Matrix -->
+                <div class="flex items-center justify-end gap-2.5 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 shrink-0">
+                    <span onclick="viewOnMapOnly(event, '${id}')" class="text-[11px] text-indigo-600 hover:text-indigo-800 font-semibold flex items-center gap-1 px-2 py-1 rounded hover:bg-indigo-50">
+                        🗺️ View on Map
+                    </span>
+                    <button onclick="migrateToMatrix(event, '${id}')" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-gradient-to-r from-amber-400 to-orange-400 text-white hover:from-amber-500 hover:to-orange-500 shadow-sm hover:shadow transition-all whitespace-nowrap">→ Migrate to Matrix</button>
+                </div>
+            `;
+            grid.appendChild(card);
 
-                let lat = typeof c.latitude === 'number' ? c.latitude : null;
-                let lng = typeof c.longitude === 'number' ? c.longitude : null;
+            let lat = typeof c.latitude === 'number' ? c.latitude : null;
+            let lng = typeof c.longitude === 'number' ? c.longitude : null;
 
-                if (lat === null || lng === null || !isFinite(lat) || !isFinite(lng)) {
-                    let fallback = resolveFallbackCoords(displayAddr);
-                    if (!fallback) fallback = resolveFallbackCoords(loc);
-                    if (fallback) {
-                        const jitter = (hashSeed(id || name) % 30 - 15) * 0.003;
-                        lat = fallback[0] + jitter;
-                        lng = fallback[1] + jitter;
-                    }
+            if (lat === null || lng === null || !isFinite(lat) || !isFinite(lng)) {
+                let fallback = resolveFallbackCoords(displayAddr) || resolveFallbackCoords(loc);
+                if (fallback) {
+                    const jitter = (hashSeed(id || name) % 30 - 15) * 0.003;
+                    lat = fallback[0] + jitter;
+                    lng = fallback[1] + jitter;
                 }
-
-                if (lat !== null && lng !== null && isFinite(lat) && isFinite(lng) && markersGroup) {
-                    try {
-                        const marker = L.marker([lat, lng]);
-                        marker.bindPopup(`
-                            <div style="min-width: 220px; font-family: inherit;">
-                                <div style="font-weight: 700; font-size: 13px; color: #0f172a; margin-bottom: 4px;">${esc(name)}</div>
-                                <div style="font-size: 11px; color: #475569; margin-bottom: 6px; line-height: 1.4;">📍 ${esc(displayAddr)}</div>
-                                ${email ? `<div style="font-size: 11px; color: #059669; margin-bottom: 2px;">📧 ${esc(email)}</div>` : ''}
-                                ${phone ? `<div style="font-size: 11px; color: #2563eb; margin-bottom: 6px;">📞 ${esc(phone)}</div>` : ''}
-                                <button onclick="openModal('${id}')" style="display:block; width:100%; text-align:center; background:#4f46e5; color:white; border:none; border-radius:6px; padding:5px 0; font-size:11px; font-weight:600; cursor:pointer; margin-top:6px;">View Full Details</button>
-                            </div>
-                        `);
-                        markersGroup.addLayer(marker);
-                        markersMap[id] = marker;
-                        bounds.push([lat, lng]);
-                    } catch (e) { console.warn('Marker error:', e); }
-                }
-            });
-
-            if (bounds.length > 0 && map) {
-                try { map.fitBounds(bounds, { padding: [50, 50], maxZoom: 13 }); }
-                catch (e) { console.warn('fitBounds error:', e); }
             }
-        } catch (e) { console.error('loadData error:', e); }
+
+            if (lat !== null && lng !== null && isFinite(lat) && isFinite(lng) && markersGroup) {
+                try {
+                    const marker = L.marker([lat, lng]);
+                    marker.bindPopup(`
+                        <div style="min-width: 220px; font-family: inherit;">
+                            <div style="font-weight: 700; font-size: 13px; color: #0f172a; margin-bottom: 4px;">${esc(name)}</div>
+                            <div style="font-size: 11px; color: #475569; margin-bottom: 6px; line-height: 1.4;">📍 ${esc(displayAddr)}</div>
+                            ${hasValue(email) ? `<div style="font-size: 11px; color: #059669; margin-bottom: 2px;">📧 ${esc(firstVal(email))}</div>` : ''}
+                            ${hasValue(phone) ? `<div style="font-size: 11px; color: #2563eb; margin-bottom: 6px;">📞 ${esc(firstVal(phone))}</div>` : ''}
+                            <button onclick="openModal('${id}')" style="display:block; width:100%; text-align:center; background:#4f46e5; color:white; border:none; border-radius:6px; padding:5px 0; font-size:11px; font-weight:600; cursor:pointer; margin-top:6px;">View Full Details</button>
+                        </div>
+                    `);
+                    markersGroup.addLayer(marker);
+                    markersMap[id] = marker;
+                    bounds.push([lat, lng]);
+                } catch (e) {}
+            }
+        });
+
+        if (bounds.length > 0 && map) {
+            try { map.fitBounds(bounds, { padding: [50, 50], maxZoom: 13 }); }
+            catch (e) {}
+        }
     }
 
     function goPage(dir) {
-        const totalPages = Math.ceil(totalRecords / PER_PAGE) || 1;
+        const totalPages = Math.ceil(filteredRecords.length / PER_PAGE) || 1;
         if (dir === 'next' && currentPage < totalPages) currentPage++;
         else if (dir === 'prev' && currentPage > 1) currentPage--;
-        loadData();
+        applyFiltersAndRender();
         document.getElementById('listPanel')?.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
@@ -773,32 +1061,40 @@
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ id })
             });
-            const result = await res.json();
-            console.log('Migrate:', result);
-            if (res.ok) { selectedIds.delete(id); loadData(); loadStats(); }
+            if (res.ok) {
+                selectedIds.delete(id);
+                allDatabaseRecords = allDatabaseRecords.filter(x => (x?._id ?? '') !== id);
+                populateCountryDropdown(allDatabaseRecords);
+                populateCategoryDropdown(allDatabaseRecords);
+                applyFiltersAndRender();
+                loadStats();
+            }
         } catch (e) { console.error('Migration error:', e); }
     };
-
-    let debounceTimer = null;
-    function debouncedLoad() {
-        clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(() => { currentPage = 1; loadData(); }, 300);
-    }
 
     const qDesktop = document.getElementById('filterQ');
     const qMobile = document.getElementById('filterQMobile');
     qDesktop?.addEventListener('input', () => {
         if (qMobile) qMobile.value = qDesktop.value;
-        debouncedLoad();
+        currentPage = 1;
+        applyFiltersAndRender();
     });
     qMobile?.addEventListener('input', () => {
         if (qDesktop) qDesktop.value = qMobile.value;
-        debouncedLoad();
+        currentPage = 1;
+        applyFiltersAndRender();
     });
 
-    document.getElementById('filterCity')?.addEventListener('input', debouncedLoad);
+    document.getElementById('filterCity')?.addEventListener('input', () => {
+        currentPage = 1;
+        applyFiltersAndRender();
+    });
+
     ['filterCountry', 'filterCategory', 'filterEmail', 'filterPhone', 'filterWebsite', 'filterSort'].forEach(id => {
-        document.getElementById(id)?.addEventListener('change', () => { currentPage = 1; loadData(); });
+        document.getElementById(id)?.addEventListener('change', () => {
+            currentPage = 1;
+            applyFiltersAndRender();
+        });
     });
 
     function resetAllFilters() {
@@ -812,7 +1108,7 @@
         if (document.getElementById('filterWebsite')) document.getElementById('filterWebsite').value = '';
         if (document.getElementById('filterSort')) document.getElementById('filterSort').value = 'newest';
         currentPage = 1;
-        loadData();
+        applyFiltersAndRender();
     }
 
     document.getElementById('scrapeBtn')?.addEventListener('click', async () => {
@@ -833,18 +1129,16 @@
             try {
                 data = await res.json();
             } catch (jsonErr) {
-                throw new Error(res.status ? `Server returned status ${res.status}. Check Vercel/Render logs or environment variables.` : 'Network connection failed.');
+                throw new Error(res.status ? `Server returned status ${res.status}.` : 'Network connection failed.');
             }
-            console.log('Search new:', data);
             if (!res.ok || data?.error) {
                 alert(data?.error || `Search error (HTTP ${res.status})`);
             } else {
                 alert(data?.message ?? 'Search completed!');
-                loadData();
+                await fetchAllFromServer();
                 loadStats();
             }
         } catch (e) {
-            console.error('Search new error:', e);
             alert(e?.message || 'Request failed. Check backend deployment and logs.');
         } finally {
             if (btn) btn.disabled = false;
@@ -854,10 +1148,9 @@
 
     document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
-    console.log('Discovery Search: Initializing...');
     initMap();
     loadStats();
-    loadData();
+    fetchAllFromServer();
     </script>
 </body>
 </html>
