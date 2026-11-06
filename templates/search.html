@@ -72,11 +72,17 @@
             <div id="scraperControls" class="hidden md:flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                 <select id="scrapeCategory" class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 text-slate-700 cursor-pointer font-medium">
                     <option value="all">⚡ All Aluminium Profiles</option>
-                    <option value="led">💡 LED Profiles</option>
-                    <option value="tile">🔲 Tile Trim Profiles</option>
-                    <option value="furniture">🪑 Furniture / Kitchen</option>
-                    <option value="glass">🚿 Shower & Glass Profiles</option>
-                    <option value="decorative">🎨 Wall & Ceiling Profiles</option>
+                    <option value="led">01 LED Profiles</option>
+                    <option value="pvc_wall">02 PVC Wall Panel Profiles</option>
+                    <option value="plasterboard">03 Plasterboard Profiles</option>
+                    <option value="skirting">04 Skirting Profiles</option>
+                    <option value="stair_nosing">05 Stair Nosing Profiles</option>
+                    <option value="tile">06 Tile Trim Profiles</option>
+                    <option value="floor">07 Floor Profiles</option>
+                    <option value="furniture">08 Furniture Profiles</option>
+                    <option value="screed">09 Screed Profiles &amp; Feather Edges</option>
+                    <option value="stainless">10 Stainless Steel Profiles</option>
+                    <option value="glass">🚿 Shower &amp; Glass Profiles</option>
                     <option value="extrusion">⚙️ Light Extrusions</option>
                 </select>
                 <div class="flex items-center gap-2">
@@ -148,8 +154,8 @@
             <input type="text" id="filterCity" placeholder="Filter by city / address..."
                 class="w-[calc(50%-4px)] sm:w-36 lg:w-40 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 placeholder:text-slate-400">
             
-            <!-- Category Filter Dropdown (Auto-Populated from Real Database Tags + Smart Groups) -->
-            <select id="filterCategory" class="w-[calc(50%-4px)] sm:w-auto lg:w-52 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 text-slate-600 cursor-pointer">
+            <!-- Category Filter Dropdown (Auto-Populated from Product Groups + Exact Database Tags) -->
+            <select id="filterCategory" class="w-[calc(50%-4px)] sm:w-auto lg:w-56 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 text-slate-600 cursor-pointer">
                 <option value="all">🏷️ Category: All</option>
             </select>
 
@@ -310,35 +316,63 @@
         'China': ['china', 'foshan', 'guangzhou', 'shenzhen', 'dongguan', 'shanghai']
     };
 
-    // Smart Category Groups (Broad industry buckets)
+    // Standardized Product Groups (01–10 Catalog + Non-Overlapping Architectural Groups, Zero Duplicates)
     const CATEGORY_GROUPS = {
+        'group:01_led': {
+            label: '01 LED Profiles',
+            keywords: ['led', 'light profile', 'lighting profile', 'luminaire', 'led strip', 'led channel', 'diffuser', 'illumination', 'linear light']
+        },
+        'group:02_pvc_wall': {
+            label: '02 PVC Wall Panel Profiles',
+            keywords: ['pvc wall', 'wall panel', 'cladding profile', 'panel profile', 'pvc profile', 'wall trim', 'wainscoting', 'lambris']
+        },
+        'group:03_plasterboard': {
+            label: '03 Plasterboard Profiles',
+            keywords: ['plasterboard', 'drywall', 'gypsum', 'corner bead', 'shadow gap', 'plaster profile', 'render', 'architrave bead', 'knauf', 'stud']
+        },
+        'group:04_skirting': {
+            label: '04 Skirting Profiles',
+            keywords: ['skirting', 'baseboard', 'plinth', 'wall base', 'cove base', 'flush skirting', 'led skirting']
+        },
+        'group:05_stair_nosing': {
+            label: '05 Stair Nosing Profiles',
+            keywords: ['stair nosing', 'stair profile', 'step edge', 'step nosing', 'anti-slip stair', 'stair tread', 'stair edg']
+        },
+        'group:06_tile_trim': {
+            label: '06 Tile Trim Profiles',
+            keywords: ['tile trim', 'tile profile', 'tile edg', 'ceramic trim', 'listello', 'tile corner', 'square edge tile', 'round edge tile', 'balcony profile']
+        },
+        'group:07_floor': {
+            label: '07 Floor Profiles',
+            keywords: ['floor profile', 'flooring profile', 'transition profile', 'carpet trim', 'laminate profile', 'parquet profile', 'expansion joint', 'threshold', 'ramp profile', 'same level']
+        },
+        'group:08_furniture': {
+            label: '08 Furniture Profiles',
+            keywords: ['furniture', 'kitchen', 'wardrobe', 'cabinet', 'handle profile', 'gola profile', 'closet', 'drawer', 'shelf', 'edgeband', 'mirror frame']
+        },
+        'group:09_screed': {
+            label: '09 Screed Profiles and Aluminium Feather Edges',
+            keywords: ['screed', 'feather edge', 'straight edge', 'ruling edge', 'concrete profile', 'leveling rule', 'plasterers rule', 'darby']
+        },
+        'group:10_stainless': {
+            label: '10 Stainless Steel Profiles',
+            keywords: ['stainless steel', 'inox', '304', '316', 'ss profile', 'brushed steel', 'chrome profile']
+        },
         'group:windows_doors': {
             label: '🪟 Windows, Doors & Sliding Systems',
-            keywords: ['window', 'door', 'sliding', 'casement', 'joinery', 'fenestration', 'frame', 'shutter', 'roller', 'mosquito', 'fly screen', 'thermal break', 'glazing']
+            keywords: ['window', 'door', 'sliding', 'casement', 'joinery', 'fenestration', 'shutter', 'roller', 'mosquito', 'fly screen', 'thermal break', 'glazing']
         },
         'group:facades_outdoor': {
             label: '🏢 Facades, Pergolas & Cladding',
-            keywords: ['facade', 'façade', 'curtain wall', 'pergola', 'cladding', 'acp', 'composite', 'ventilated', 'canopy', 'awning', 'veranda', 'sunroom', 'wintergarden', 'louvre', 'brise']
-        },
-        'group:extrusion_profiles': {
-            label: '⚙️ Aluminium Profiles & Extrusions',
-            keywords: ['extrusion', 'extruded', 'profile', 'billet', 'alloy', 'anodiz', 'powder coat', 'industrial', 'section', 'bar', 'tube', 'pipe', 'sheet', 'coil']
+            keywords: ['facade', 'façade', 'curtain wall', 'pergola', 'acp', 'composite', 'ventilated', 'canopy', 'awning', 'veranda', 'sunroom', 'wintergarden', 'louvre']
         },
         'group:glass_railings': {
             label: '🚿 Glass, Railings & Shower Systems',
             keywords: ['glass', 'shower', 'railing', 'balustrade', 'handrail', 'partition', 'fence', 'fencing', 'gate', 'balcony', 'bathroom']
         },
-        'group:led_lighting': {
-            label: '💡 LED & Lighting Profiles',
-            keywords: ['led', 'light', 'lighting', 'luminaire', 'strip', 'channel', 'diffuser', 'illumination']
-        },
-        'group:tile_flooring': {
-            label: '🔲 Tile Trim, Flooring & Skirting',
-            keywords: ['tile', 'trim', 'edging', 'floor', 'stair', 'nosing', 'skirting', 'transition', 'carpet', 'expansion']
-        },
-        'group:furniture_interior': {
-            label: '🪑 Furniture, Kitchen & Interior',
-            keywords: ['furniture', 'kitchen', 'wardrobe', 'cabinet', 'handle', 'closet', 'drawer', 'shelf', 'interior', 'decorative', 'wall', 'ceiling', 'cornice']
+        'group:extrusion_profiles': {
+            label: '⚙️ Industrial Aluminium Extrusions',
+            keywords: ['extrusion', 'extruded', 'billet', 'alloy', 'anodiz', 'powder coat', 'industrial profile', 'standard profile', 'section', 'bar', 'tube', 'pipe', 'heatsink', 'solar']
         }
     };
 
@@ -542,7 +576,6 @@
         return INVALID_VALUES.has(str.toLowerCase()) ? [] : [str];
     }
 
-    // Extracts all category tags for a company regardless of which field name was used in DB
     function extractCompanyCategories(c) {
         if (!c) return [];
         const raw = [
@@ -554,7 +587,6 @@
             ...normalize(c.tags),
             ...normalize(c.scrape_category)
         ];
-        // Split comma/semicolon separated strings and deduplicate
         const unique = new Map();
         raw.forEach(item => {
             item.split(/[,;|]/).forEach(part => {
@@ -704,7 +736,6 @@
         select.value = currentSelection;
     }
 
-    // Checks if a company record matches a specific category filter value
     function companyMatchesCategory(c, catValue) {
         if (!catValue || catValue === 'all') return true;
 
@@ -716,18 +747,18 @@
             firstVal(c.buyer_name)
         ].join(' ').toLowerCase();
 
-        // 1. Check if user selected one of the broad Category Groups
+        // 1. Check if user selected one of the Product Groups
         if (catValue.startsWith('group:') && CATEGORY_GROUPS[catValue]) {
             const keywords = CATEGORY_GROUPS[catValue].keywords;
             return keywords.some(kw => fullBlob.includes(kw));
         }
 
-        // 2. Check if user selected an exact scraped tag (or substring)
+        // 2. Check if user selected an exact scraped tag
         const target = catValue.toLowerCase();
         return companyTags.some(t => t === target || t.includes(target)) || fullBlob.includes(target);
     }
 
-    // Auto-populates the Category Dropdown with Smart Groups + Actual Database Tags (with live counts!)
+    // Populates Category Dropdown with Product Groups (01–10 + Architectural) & Deduplicated Exact Tags
     function populateCategoryDropdown(records) {
         const select = document.getElementById('filterCategory');
         if (!select) return;
@@ -735,7 +766,10 @@
 
         select.innerHTML = '<option value="all">🏷️ Category: All</option>';
 
-        // 1. Add Smart Groups with live counts
+        // Track group labels & keywords so we never duplicate them in Exact Database Tags
+        const existingGroupNames = new Set();
+
+        // 1. Add Product Groups with live counts
         const groupOptGroup = document.createElement('optgroup');
         groupOptGroup.label = 'Product Groups';
         for (const [groupKey, groupObj] of Object.entries(CATEGORY_GROUPS)) {
@@ -744,17 +778,23 @@
             opt.value = groupKey;
             opt.textContent = `${groupObj.label} (${count})`;
             groupOptGroup.appendChild(opt);
+
+            // Normalize label without leading numbers/emojis to prevent duplicate tags below
+            const cleanGroupName = groupObj.label.replace(/^[0-9]+\s+|[^\w\s&]/g, '').trim().toLowerCase();
+            existingGroupNames.add(cleanGroupName);
+            existingGroupNames.add(groupObj.label.toLowerCase());
         }
         select.appendChild(groupOptGroup);
 
-        // 2. Extract every actual category tag from the database and count how many companies have it
+        // 2. Extract actual category tags from database (skipping any that duplicate a Product Group name)
         const tagCounts = new Map();
         const tagDisplayNames = new Map();
 
         records.forEach(r => {
             const tags = extractCompanyCategories(r);
             tags.forEach(t => {
-                const key = t.toLowerCase();
+                const key = t.toLowerCase().trim();
+                if (existingGroupNames.has(key)) return; // Skip duplicates
                 tagCounts.set(key, (tagCounts.get(key) || 0) + 1);
                 if (!tagDisplayNames.has(key)) tagDisplayNames.set(key, t);
             });
@@ -780,7 +820,6 @@
             select.appendChild(exactOptGroup);
         }
 
-        // Restore previous selection if still valid
         if (Array.from(select.options).some(o => o.value === currentSelection)) {
             select.value = currentSelection;
         } else {
@@ -861,7 +900,7 @@
                 if (!addrBlob.includes(city)) return false;
             }
 
-            // 4. Category Filter (Matches Smart Groups AND Exact Database Tags)
+            // 4. Category Filter
             if (category && category !== 'all') {
                 if (!companyMatchesCategory(c, category)) return false;
             }
@@ -916,13 +955,22 @@
         renderCardsAndMarkers();
     }
 
-    // Clicking a category badge on any card immediately filters by that category!
     function filterByTag(e, tagValue) {
         e.stopPropagation();
         const select = document.getElementById('filterCategory');
         if (!select) return;
-        const key = String(tagValue).toLowerCase();
-        select.value = key;
+        const key = String(tagValue).toLowerCase().trim();
+
+        if (Array.from(select.options).some(o => o.value === key)) {
+            select.value = key;
+        } else {
+            for (const [groupKey, groupObj] of Object.entries(CATEGORY_GROUPS)) {
+                if (groupObj.keywords.some(kw => key.includes(kw))) {
+                    select.value = groupKey;
+                    break;
+                }
+            }
+        }
         currentPage = 1;
         applyFiltersAndRender();
     }
