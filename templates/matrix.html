@@ -20,24 +20,36 @@
         }
     </script>
     <style>
-        /* Leaflet popup override */
         .leaflet-popup-content-wrapper { border-radius: 10px !important; box-shadow: 0 4px 15px rgba(0,0,0,0.15) !important; }
         .leaflet-popup-content { margin: 10px 14px !important; font-family: 'Inter', sans-serif !important; font-size: 0.85rem !important; }
         .marker-pending { filter: hue-rotate(30deg) saturate(1.4); }
         .marker-completed { filter: hue-rotate(120deg) saturate(1.4) brightness(1.1); }
         .marker-scraped { filter: hue-rotate(180deg) saturate(1.4) brightness(1.1); }
-        /* Custom scrollbar */
+        /* Permanent Company Name Label on Map Pins */
+        .company-map-label {
+            background: rgba(15, 23, 42, 0.88) !important;
+            color: #ffffff !important;
+            border: 1px solid rgba(255,255,255,0.2) !important;
+            border-radius: 6px !important;
+            padding: 2px 7px !important;
+            font-family: 'Inter', sans-serif !important;
+            font-size: 10px !important;
+            font-weight: 600 !important;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2) !important;
+            white-space: nowrap !important;
+            max-width: 150px !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+        }
+        .company-map-label::before { border-top-color: rgba(15, 23, 42, 0.88) !important; }
         .scroll-panel::-webkit-scrollbar { width: 5px; height: 5px; }
         .scroll-panel::-webkit-scrollbar-track { background: transparent; }
         .scroll-panel::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
         .scroll-panel::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-        /* Row enter animation */
         @keyframes fadeSlideIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
         .card-animate { animation: fadeSlideIn 0.2s ease-out both; }
-        /* Modal animation */
         .modal-bg { transition: opacity 0.25s ease; }
         .modal-panel { transition: opacity 0.25s ease, transform 0.25s ease; }
-        /* Spinner */
         @keyframes spin { to { transform: rotate(360deg); } }
         .spinner { animation: spin 0.7s linear infinite; }
         .h-dvh-screen { height: 100vh; height: 100dvh; }
@@ -82,7 +94,7 @@
         </div>
     </div>
 
-    <!-- ===== STATS ROW (Scrollable strip on phone, 7-col grid on desktop) ===== -->
+    <!-- ===== STATS ROW ===== -->
     <div class="bg-white border-b border-slate-200 px-3 sm:px-6 py-2 sm:py-3 shrink-0">
         <div class="flex lg:grid lg:grid-cols-7 gap-2 sm:gap-3 overflow-x-auto scroll-panel pb-1 lg:pb-0">
             <div class="bg-slate-50 rounded-lg sm:rounded-xl px-3 sm:px-4 py-1.5 sm:py-2.5 border border-slate-100 shrink-0 min-w-[95px] sm:min-w-[110px] lg:min-w-0">
@@ -135,21 +147,17 @@
             <input type="text" id="filterQ" placeholder="Search company name..."
                 class="hidden lg:block px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 transition w-40 placeholder:text-slate-400">
             
-            <!-- Country Filter Dropdown (Auto-Populated with Live Counts + All Global Countries) -->
             <select id="filterCountry" class="w-[calc(50%-4px)] sm:w-auto lg:w-44 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 text-slate-600 cursor-pointer">
                 <option value="">🌍 Country: All</option>
             </select>
 
-            <!-- City / Street Filter -->
             <input type="text" id="filterCity" placeholder="Filter by city / address..."
                 class="w-[calc(50%-4px)] sm:w-36 lg:w-36 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 placeholder:text-slate-400">
             
-            <!-- Category Filter Dropdown (Auto-Populated with Emoji Product Groups + Deduplicated Exact Database Tags) -->
             <select id="filterCategory" class="w-[calc(50%-4px)] sm:w-auto lg:w-56 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 text-slate-600 cursor-pointer">
                 <option value="all">🏷️ Category: All</option>
             </select>
 
-            <!-- AI Status Filter -->
             <select id="filterStatus" class="w-[calc(50%-4px)] sm:w-auto px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 text-slate-600 cursor-pointer">
                 <option value="all">Status: All</option>
                 <option value="pending">⏳ Pending</option>
@@ -197,10 +205,10 @@
         </button>
     </div>
 
-    <!-- ===== MAIN CONTENT: Split View ===== -->
+    <!-- ===== MAIN CONTENT: 70% List / 30% Smaller Map ===== -->
     <div class="flex flex-1 overflow-hidden min-h-0 relative">
-        <!-- Horizontal Line List Panel -->
-        <div class="w-full lg:flex-1 overflow-y-auto scroll-panel p-2.5 sm:p-4 bg-slate-50" id="listPanel">
+        <!-- Horizontal Line List Panel (70% width on desktop) -->
+        <div class="w-full lg:w-[68%] xl:w-[70%] overflow-y-auto scroll-panel p-2.5 sm:p-4 bg-slate-50" id="listPanel">
             <div class="flex flex-col gap-2" id="cardGrid">
                 <!-- Line rows injected here -->
             </div>
@@ -211,8 +219,8 @@
                 <button onclick="goPage('next')" id="nextBtn" class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs sm:text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition">Next →</button>
             </div>
         </div>
-        <!-- Map Panel -->
-        <div id="mapPanel" class="w-full lg:flex-1 h-full border-l border-slate-200 relative hidden lg:block">
+        <!-- Smaller Map Panel (30% width on desktop) -->
+        <div id="mapPanel" class="w-full lg:w-[32%] xl:w-[30%] h-full border-l border-slate-200 relative hidden lg:block shrink-0">
             <div id="mainMap" class="w-full h-full"></div>
             <button onclick="switchMobileView('list')" class="lg:hidden absolute bottom-5 left-1/2 -translate-x-1/2 z-[1000] bg-slate-900/90 text-white px-4 py-2 rounded-full text-xs font-bold shadow-lg backdrop-blur-sm flex items-center gap-1.5">
                 📋 Back to List
@@ -224,9 +232,7 @@
     <div id="companyModal" class="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4 hidden" onclick="closeModal(event)">
         <div class="absolute inset-0 bg-black/50 backdrop-blur-sm modal-bg"></div>
         <div class="relative bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-lg max-h-[88vh] sm:max-h-[85vh] overflow-y-auto modal-panel z-10" onclick="event.stopPropagation()">
-            <!-- Close -->
             <button onclick="closeModal(event)" class="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-100 hover:bg-red-50 hover:text-red-500 flex items-center justify-center text-slate-400 text-lg transition-colors z-20">&times;</button>
-            <!-- Header -->
             <div class="px-6 pt-6 pb-4 border-b border-slate-100 flex items-start justify-between gap-3">
                 <div>
                     <h2 id="modalName" class="text-lg font-bold text-slate-900 pr-4">Company Name</h2>
@@ -237,7 +243,6 @@
                     ✨ AI Enrich
                 </button>
             </div>
-            <!-- Body -->
             <div class="px-6 py-4 space-y-4">
                 <div>
                     <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Categories / Products</div>
@@ -272,10 +277,6 @@
     </div>
 
     <script>
-    /* ==============================================================
-       Matrix Hub — 100% Reliable Client + Server Filter Engine
-       ============================================================== */
-
     let map = null;
     let markersGroup = null;
     let markersMap = {};
@@ -288,7 +289,6 @@
     let currentPage = 1;
     const PER_PAGE = 100;
 
-    // Comprehensive Country & City-to-Country Mapping
     const COUNTRY_KEYWORDS = {
         'Georgia': ['georgia', 'tbilisi', 'batumi', 'kutaisi', 'rustavi', 'gori', 'poti'],
         'Germany': ['germany', 'deutschland', 'berlin', 'munich', 'münchen', 'frankfurt', 'hamburg', 'stuttgart', 'düsseldorf', 'dusseldorf', 'cologne', 'köln', 'dortmund', 'essen', 'velbert', 'wuppertal', 'solingen', 'hagen', 'iserlohn', 'ludenscheid', 'leipzig', 'bremen', 'hanover', 'nuremberg'],
@@ -357,7 +357,6 @@
         'Australia': ['australia', 'sydney', 'melbourne', 'brisbane', 'perth', 'adelaide']
     };
 
-    // Standardized Product Groups with Emojis (No Leading Numbers, Zero Duplicates)
     const CATEGORY_GROUPS = {
         'group:led': {
             label: '💡 LED Profiles',
@@ -588,12 +587,8 @@
     const INVALID_VALUES = new Set(['', 'n/a', 'na', 'none', 'null', 'undefined', '-', 'not available', 'unknown', '[]']);
     function normalize(val) {
         if (val == null) return [];
-        if (Array.isArray(val)) {
-            return val.flatMap(v => normalize(v));
-        }
-        if (typeof val === 'object') {
-            return Object.values(val).flatMap(v => normalize(v));
-        }
+        if (Array.isArray(val)) return val.flatMap(v => normalize(v));
+        if (typeof val === 'object') return Object.values(val).flatMap(v => normalize(v));
         if (typeof val === 'string') {
             const s = val.trim();
             if (INVALID_VALUES.has(s.toLowerCase())) return [];
@@ -803,18 +798,15 @@
             firstVal(c.buyer_name)
         ].join(' ').toLowerCase();
 
-        // 1. Check if user selected one of the Emoji Product Groups
         if (catValue.startsWith('group:') && CATEGORY_GROUPS[catValue]) {
             const keywords = CATEGORY_GROUPS[catValue].keywords;
             return keywords.some(kw => fullBlob.includes(kw));
         }
 
-        // 2. Check if user selected an exact scraped tag
         const target = catValue.toLowerCase();
         return companyTags.some(t => t === target || t.includes(target)) || fullBlob.includes(target);
     }
 
-    // Populates Category Dropdown with Emoji Product Groups & Deduplicated Exact Database Tags
     function populateCategoryDropdown(records) {
         const select = document.getElementById('filterCategory');
         if (!select) return;
@@ -822,10 +814,8 @@
 
         select.innerHTML = '<option value="all">🏷️ Category: All</option>';
 
-        // Track group labels & keywords so we never duplicate them in Exact Database Tags
         const existingGroupNames = new Set();
 
-        // 1. Emoji Product Groups
         const groupOptGroup = document.createElement('optgroup');
         groupOptGroup.label = 'Product Groups';
         for (const [groupKey, groupObj] of Object.entries(CATEGORY_GROUPS)) {
@@ -841,7 +831,6 @@
         }
         select.appendChild(groupOptGroup);
 
-        // 2. Exact Database Tags (Deduplicated against Product Groups)
         const tagCounts = new Map();
         const tagDisplayNames = new Map();
 
@@ -928,7 +917,6 @@
         filteredRecords = allDatabaseRecords.filter(c => {
             if (!c) return false;
 
-            // 1. Company Name / Keyword Search
             if (q) {
                 const nameBlob = [
                     firstVal(c.name),
@@ -939,7 +927,6 @@
                 if (!nameBlob.includes(q)) return false;
             }
 
-            // 2. Country Filter
             if (country) {
                 const companyCountries = detectCompanyCountries(c).map(x => x.toLowerCase());
                 const locBlob = [c.address, c.location_string, c.location, c.destination_country, c.country].join(' ').toLowerCase();
@@ -948,7 +935,6 @@
                 if (!matched) return false;
             }
 
-            // 3. City / Address Filter
             if (city) {
                 const addrBlob = [
                     firstVal(c.address),
@@ -959,33 +945,27 @@
                 if (!addrBlob.includes(city)) return false;
             }
 
-            // 4. Category Filter
             if (category && category !== 'all') {
                 if (!companyMatchesCategory(c, category)) return false;
             }
 
-            // 5. AI Status Filter
             if (status && status !== 'all') {
                 const recStatus = String(c.ai_status ?? 'pending').toLowerCase();
                 if (recStatus !== status) return false;
             }
 
-            // 6. Email Filter
             if (has_email === 'true' && !hasValue(c.email)) return false;
             if (has_email === 'false' && hasValue(c.email)) return false;
 
-            // 7. Phone Filter
             if (has_phone === 'true' && !hasValue(c.phone)) return false;
             if (has_phone === 'false' && hasValue(c.phone)) return false;
 
-            // 8. Website Filter
             if (has_website === 'true' && !hasValue(c.website)) return false;
             if (has_website === 'false' && hasValue(c.website)) return false;
 
             return true;
         });
 
-        // 9. Sorting
         if (sort === 'oldest') {
             filteredRecords.reverse();
         } else if (sort === 'name_asc') {
@@ -1092,12 +1072,12 @@
                 : '';
 
             card.innerHTML = `
-                <!-- Left: Selection Circle + Company Name + Location -->
-                <div class="flex items-start sm:items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+                <!-- Left: Selection Circle + Full Company Name (No Truncation) + Location -->
+                <div class="flex items-start sm:items-center gap-2.5 sm:gap-3 min-w-[220px] flex-1">
                     <div onclick="toggleSelection(event, '${id}')" class="w-5 h-5 mt-0.5 sm:mt-0 rounded-full border-2 shrink-0 flex items-center justify-center cursor-pointer transition-all hover:scale-110 ${selCircleClasses}">${selCheck}</div>
                     <div class="min-w-0 flex-1">
-                        <h3 class="text-sm font-bold text-slate-800 truncate leading-snug" title="${esc(name)}">${esc(name)}</h3>
-                        <div class="flex items-center gap-1 text-xs text-slate-500 truncate mt-0.5" title="${esc(displayAddr)}">
+                        <h3 class="text-sm font-bold text-slate-900 break-words leading-snug group-hover:text-indigo-600 transition-colors">${esc(name)}</h3>
+                        <div class="flex items-center gap-1 text-xs text-slate-500 mt-0.5" title="${esc(displayAddr)}">
                             <span class="text-indigo-500 font-bold shrink-0">📍</span>
                             <span class="truncate font-medium">${esc(displayAddr)}</span>
                         </div>
@@ -1141,6 +1121,13 @@
                         const el = marker.getElement?.();
                         if (el) el.classList.add('marker-' + aiStatus.toLowerCase());
                     });
+                    // Permanent Company Name Label above map pin
+                    marker.bindTooltip(esc(name), {
+                        permanent: true,
+                        direction: 'top',
+                        offset: [0, -10],
+                        className: 'company-map-label'
+                    });
                     marker.bindPopup(`
                         <div style="min-width: 200px; font-family: inherit;">
                             <div style="font-weight: 700; font-size: 13px; color: #0f172a; margin-bottom: 3px;">${esc(name)}</div>
@@ -1157,7 +1144,7 @@
         });
 
         if (bounds.length > 0 && map) {
-            try { map.fitBounds(bounds, { padding: [40, 40], maxZoom: 12 }); }
+            try { map.fitBounds(bounds, { padding: [35, 35], maxZoom: 12 }); }
             catch (e) {}
         }
     }
@@ -1177,7 +1164,6 @@
         return d.innerHTML;
     }
 
-    // ---------- AI Enrichment ----------
     async function enrichSingleCompany(e, id) {
         if (e) e.stopPropagation();
         if (!id) return;
@@ -1250,7 +1236,6 @@
         };
     }
 
-    // ---------- Filter Events ----------
     const qDesktop = document.getElementById('filterQ');
     const qMobile = document.getElementById('filterQMobile');
     qDesktop?.addEventListener('input', () => {
