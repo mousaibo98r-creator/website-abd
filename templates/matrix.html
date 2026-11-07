@@ -132,7 +132,7 @@
     <div class="bg-white border-b border-slate-200 px-3 sm:px-6 py-2.5 shrink-0">
         <!-- Mobile Quick Bar -->
         <div class="flex items-center gap-2 lg:hidden">
-            <input type="text" id="filterQMobile" placeholder="Search company name..."
+            <input type="text" id="filterQMobile" placeholder="Search company or note..."
                 class="flex-1 min-w-0 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300">
             <button onclick="toggleMobileSection('filterDrawer')" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1 shrink-0">
                 ⚙️ Filters
@@ -144,17 +144,17 @@
 
         <!-- Full Filter Bar -->
         <div id="filterDrawer" class="hidden lg:flex flex-wrap items-center gap-2 mt-2.5 lg:mt-0 pt-2.5 lg:pt-0 border-t lg:border-t-0 border-slate-100">
-            <input type="text" id="filterQ" placeholder="Search company name..."
+            <input type="text" id="filterQ" placeholder="Search company or note..."
                 class="hidden lg:block px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 transition w-40 placeholder:text-slate-400">
             
-            <select id="filterCountry" class="w-[calc(50%-4px)] sm:w-auto lg:w-44 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 text-slate-600 cursor-pointer">
+            <select id="filterCountry" class="w-[calc(50%-4px)] sm:w-auto lg:w-40 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 text-slate-600 cursor-pointer">
                 <option value="">🌍 Country: All</option>
             </select>
 
             <input type="text" id="filterCity" placeholder="Filter by city / address..."
                 class="w-[calc(50%-4px)] sm:w-36 lg:w-36 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 placeholder:text-slate-400">
             
-            <select id="filterCategory" class="w-[calc(50%-4px)] sm:w-auto lg:w-56 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 text-slate-600 cursor-pointer">
+            <select id="filterCategory" class="w-[calc(50%-4px)] sm:w-auto lg:w-52 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 text-slate-600 cursor-pointer">
                 <option value="all">🏷️ Category: All</option>
             </select>
 
@@ -164,6 +164,12 @@
                 <option value="completed">✅ Completed</option>
                 <option value="scraped">🔍 Scraped</option>
                 <option value="failed">❌ Failed</option>
+            </select>
+
+            <select id="filterNote" class="w-[calc(50%-4px)] sm:w-auto px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 text-slate-600 cursor-pointer">
+                <option value="">Notes: All</option>
+                <option value="true">📝 Has Note</option>
+                <option value="false">❌ No Note</option>
             </select>
 
             <select id="filterEmail" class="w-[calc(50%-4px)] sm:w-auto px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 text-slate-600 cursor-pointer">
@@ -244,6 +250,18 @@
                 </button>
             </div>
             <div class="px-6 py-4 space-y-4">
+                <!-- Editable Note Box inside Modal too -->
+                <div class="bg-amber-50/70 border border-amber-200 rounded-xl p-3">
+                    <div class="flex items-center justify-between mb-1.5">
+                        <label for="modalNoteInput" class="text-xs font-bold text-amber-800 uppercase tracking-wider flex items-center gap-1">
+                            📝 Company Note / Remarks
+                        </label>
+                        <span id="modalNoteStatus" class="text-[11px] font-semibold text-emerald-600 hidden">✓ Saved</span>
+                    </div>
+                    <textarea id="modalNoteInput" rows="2" placeholder="Write any notes, follow-up status, contact person, or pricing details here..."
+                        class="w-full px-3 py-2 bg-white border border-amber-200 rounded-lg text-xs sm:text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-400 transition resize-y"></textarea>
+                </div>
+
                 <div>
                     <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Categories / Products</div>
                     <div id="modalCategories" class="text-sm text-slate-700 flex flex-wrap gap-1.5"><span class="italic text-slate-400">Not Available</span></div>
@@ -289,6 +307,82 @@
     let currentPage = 1;
     const PER_PAGE = 100;
 
+    // Persistent LocalStorage Cache for Company Notes (works immediately + syncs with backend if /api/save_note exists)
+    const NOTES_STORAGE_KEY = 'miky_matrix_company_notes_v1';
+    let localNotesMap = {};
+    try {
+        localNotesMap = JSON.parse(localStorage.getItem(NOTES_STORAGE_KEY) || '{}');
+    } catch (e) { localNotesMap = {}; }
+
+    function getCompanyNote(c) {
+        if (!c) return '';
+        const id = c._id ?? '';
+        if (id && localNotesMap[id] !== undefined) return localNotesMap[id];
+        return c.notes || c.note || c.user_note || '';
+    }
+
+    let noteSaveTimers = {};
+    function saveCompanyNote(id, text, sourceEl) {
+        if (!id) return;
+        const val = String(text ?? '');
+        localNotesMap[id] = val;
+        try {
+            localStorage.setItem(NOTES_STORAGE_KEY, JSON.stringify(localNotesMap));
+        } catch (e) {}
+
+        // Update in-memory record
+        const rec = allDatabaseRecords.find(x => (x?._id ?? '') === id);
+        if (rec) rec.notes = val;
+
+        // Sync inline row input & modal textarea if both are open
+        const rowInput = document.getElementById(`note-input-${id}`);
+        if (rowInput && rowInput !== sourceEl) {
+            rowInput.value = val;
+            styleNoteInput(rowInput, val);
+        }
+        if (rowInput && rowInput === sourceEl) {
+            styleNoteInput(rowInput, val);
+        }
+        const modalInput = document.getElementById('modalNoteInput');
+        if (currentModalId === id && modalInput && modalInput !== sourceEl) {
+            modalInput.value = val;
+        }
+
+        // Show subtle green "✓" saved indicator
+        const checkEl = document.getElementById(`note-saved-${id}`);
+        if (checkEl) {
+            checkEl.classList.remove(' opacity-0');
+            checkEl.classList.add('opacity-100');
+            setTimeout(() => { checkEl.classList.remove('opacity-100'); checkEl.classList.add('opacity-0'); }, 1200);
+        }
+        const modalSaved = document.getElementById('modalNoteStatus');
+        if (currentModalId === id && modalSaved) {
+            modalSaved.classList.remove('hidden');
+            setTimeout(() => modalSaved.classList.add('hidden'), 1200);
+        }
+
+        // Background sync to backend API (debounced) if backend supports /api/save_note or /api/update_company_note
+        clearTimeout(noteSaveTimers[id]);
+        noteSaveTimers[id] = setTimeout(() => {
+            fetch('/api/save_note', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ id, note: val, notes: val })
+            }).catch(() => {});
+        }, 500);
+    }
+
+    function styleNoteInput(inputEl, val) {
+        if (!inputEl) return;
+        if (val && val.trim().length > 0) {
+            inputEl.classList.remove('bg-slate-50', 'border-slate-200', 'text-slate-600');
+            inputEl.classList.add('bg-amber-50/90', 'border-amber-300', 'text-slate-900', 'font-medium');
+        } else {
+            inputEl.classList.add('bg-slate-50', 'border-slate-200', 'text-slate-600');
+            inputEl.classList.remove('bg-amber-50/90', 'border-amber-300', 'text-slate-900', 'font-medium');
+        }
+    }
+
     const COUNTRY_KEYWORDS = {
         'Georgia': ['georgia', 'tbilisi', 'batumi', 'kutaisi', 'rustavi', 'gori', 'poti'],
         'Germany': ['germany', 'deutschland', 'berlin', 'munich', 'münchen', 'frankfurt', 'hamburg', 'stuttgart', 'düsseldorf', 'dusseldorf', 'cologne', 'köln', 'dortmund', 'essen', 'velbert', 'wuppertal', 'solingen', 'hagen', 'iserlohn', 'ludenscheid', 'leipzig', 'bremen', 'hanover', 'nuremberg'],
@@ -302,8 +396,8 @@
         'Bosnia & Herzegovina': ['bosnia', 'herzegovina', 'sarajevo', 'mostar', 'banja luka', 'tuzla', 'zenica', 'bihac'],
         'Croatia': ['croatia', 'hrvatska', 'zagreb', 'split', 'rijeka', 'osijek', 'zadar'],
         'Slovenia': ['slovenia', 'slovenija', 'ljubljana', 'maribor', 'celje', 'kranj'],
-        'Romania': ['romania', 'românia', 'bucharest', 'bucuresti', 'bucurești', 'cluj', 'timisoara', 'iasi', 'constanta', 'brasov', 'craiova'],
-        'Bulgaria': ['bulgaria', 'sofia', 'plovdiv', 'varna', 'burgas', 'ruse', 'stara zagora'],
+        'Romania': ['romania', 'românia', 'bucharest', 'bucuresti', 'bucurești', 'cluj', 'timisoara', 'iasi', 'constanta', 'brasov', 'craiova', 'oradea', 'bihor'],
+        'Bulgaria': ['bulgaria', 'sofia', 'plovdiv', 'varna', 'burgas', 'ruse', 'stara zagora', 'софия'],
         'Greece': ['greece', 'hellas', 'athens', 'thessaloniki', 'patras', 'heraklion', 'larissa'],
         'Cyprus': ['cyprus', 'nicosia', 'limassol', 'larnaca', 'paphos'],
         'Italy': ['italy', 'italia', 'milan', 'milano', 'rome', 'roma', 'brescia', 'turin', 'torino', 'bologna', 'florence', 'firenze', 'naples', 'napoli', 'venice', 'venezia', 'verona', 'padua', 'padova', 'bergamo', 'bari'],
@@ -509,7 +603,8 @@
         'austria': [47.5162, 14.5501], 'portugal': [39.3999, -8.2245], 'greece': [39.0742, 21.8243],
         'sweden': [60.1282, 18.6435], 'norway': [60.4720, 8.4689], 'denmark': [56.2639, 9.5018], 'finland': [61.9241, 25.7482],
         'czech republic': [49.8175, 15.4730], 'czechia': [49.8175, 15.4730], 'slovakia': [48.6690, 19.6990],
-        'hungary': [47.1625, 19.5033], 'romania': [45.9432, 24.9668], 'bulgaria': [42.7339, 25.4858],
+        'hungary': [47.1625, 19.5033], 'romania': [45.9432, 24.9668], 'bucuresti': [44.4268, 26.1025], 'bucharest': [44.4268, 26.1025], 'constanta': [44.1598, 28.6348], 'oradea': [47.0465, 21.9189], 'bihor': [47.0465, 21.9189],
+        'bulgaria': [42.7339, 25.4858], 'sofia': [42.6977, 23.3219], 'софия': [42.6977, 23.3219],
         'croatia': [45.1000, 15.2000], 'slovenia': [46.1512, 14.9955], 'serbia': [44.0165, 21.0059],
         'bosnia': [43.9159, 17.6791], 'albania': [41.1533, 20.1683], 'kosovo': [42.6026, 20.9030], 'pristina': [42.6629, 21.1655],
         'north macedonia': [41.6086, 21.7453], 'skopje': [41.9981, 21.4254], 'montenegro': [42.7087, 19.3744], 'podgorica': [42.4304, 19.2594],
@@ -519,7 +614,7 @@
         'saudi arabia': [23.8859, 45.0792], 'ksa': [23.8859, 45.0792],
         'riyadh': [24.7136, 46.6753], 'jeddah': [21.5433, 39.1728], 'dammam': [26.4207, 50.0888], 'jubail': [27.0046, 49.6225],
         'qatar': [25.3548, 51.1839], 'doha': [25.2854, 51.5310], 'kuwait': [29.3117, 47.4818],
-        'oman': [21.5126, 55.9233], 'bahrain': [26.0667, 50.5577], 'jordan': [30.5852, 36.2384], 'amman': [31.9539, 35.9106],
+        'oman': [21.5126, 55.9233], 'bahrain': [26.0667, 50.5577], 'jordan': [30.5852, 36.2384], 'amman': [31.9539, 35.9106], 'iraq': [33.2232, 43.6793], 'baghdad': [33.3152, 44.3661],
         'egypt': [26.8206, 30.8025], 'cairo': [30.0444, 31.2357], 'morocco': [31.7917, -7.0926], 'tunisia': [33.8869, 9.5375], 'sousse': [35.8256, 10.6369],
         'sincan': [39.9583, 32.5786], 'ostim': [39.9725, 32.7483], 'ivedik': [39.9817, 32.7667], 'ankara': [39.9334, 32.8597],
         'istanbul': [41.0082, 28.9784], 'esenyurt': [41.0342, 28.6801], 'basaksehir': [41.0967, 28.8028],
@@ -676,6 +771,13 @@
         const badge = el('modalStatusBadge');
         badge.innerText = status;
         badge.className = 'inline-block mt-2 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ' + statusBadgeClasses(status);
+
+        // Populate Modal Note Input
+        const modalNoteInput = el('modalNoteInput');
+        if (modalNoteInput) {
+            modalNoteInput.value = getCompanyNote(c);
+            modalNoteInput.oninput = (ev) => saveCompanyNote(id, ev.target.value, modalNoteInput);
+        }
 
         const allCats = extractCompanyCategories(c);
         if (el('modalCategories')) {
@@ -909,6 +1011,7 @@
         const city = (document.getElementById('filterCity')?.value ?? '').trim().toLowerCase();
         const category = document.getElementById('filterCategory')?.value ?? 'all';
         const status = (document.getElementById('filterStatus')?.value ?? 'all').toLowerCase();
+        const has_note = document.getElementById('filterNote')?.value ?? '';
         const has_email = document.getElementById('filterEmail')?.value ?? '';
         const has_phone = document.getElementById('filterPhone')?.value ?? '';
         const has_website = document.getElementById('filterWebsite')?.value ?? '';
@@ -917,16 +1020,21 @@
         filteredRecords = allDatabaseRecords.filter(c => {
             if (!c) return false;
 
+            const noteText = getCompanyNote(c).trim();
+
+            // 1. Company Name / Keyword / Note Search
             if (q) {
                 const nameBlob = [
                     firstVal(c.name),
                     firstVal(c.buyer_name),
                     firstVal(c.description),
+                    noteText,
                     ...extractCompanyCategories(c)
                 ].join(' ').toLowerCase();
                 if (!nameBlob.includes(q)) return false;
             }
 
+            // 2. Country Filter
             if (country) {
                 const companyCountries = detectCompanyCountries(c).map(x => x.toLowerCase());
                 const locBlob = [c.address, c.location_string, c.location, c.destination_country, c.country].join(' ').toLowerCase();
@@ -935,6 +1043,7 @@
                 if (!matched) return false;
             }
 
+            // 3. City / Address Filter
             if (city) {
                 const addrBlob = [
                     firstVal(c.address),
@@ -945,21 +1054,30 @@
                 if (!addrBlob.includes(city)) return false;
             }
 
+            // 4. Category Filter
             if (category && category !== 'all') {
                 if (!companyMatchesCategory(c, category)) return false;
             }
 
+            // 5. AI Status Filter
             if (status && status !== 'all') {
                 const recStatus = String(c.ai_status ?? 'pending').toLowerCase();
                 if (recStatus !== status) return false;
             }
 
+            // 6. Note Filter
+            if (has_note === 'true' && !noteText) return false;
+            if (has_note === 'false' && noteText) return false;
+
+            // 7. Email Filter
             if (has_email === 'true' && !hasValue(c.email)) return false;
             if (has_email === 'false' && hasValue(c.email)) return false;
 
+            // 8. Phone Filter
             if (has_phone === 'true' && !hasValue(c.phone)) return false;
             if (has_phone === 'false' && hasValue(c.phone)) return false;
 
+            // 9. Website Filter
             if (has_website === 'true' && !hasValue(c.website)) return false;
             if (has_website === 'false' && hasValue(c.website)) return false;
 
@@ -1054,9 +1172,11 @@
             const website = c.website ?? '';
             const aiStatus = c.ai_status ?? 'pending';
             const isSelected = selectedIds.has(id);
+            const noteVal = getCompanyNote(c);
+            const hasNote = noteVal.trim().length > 0;
 
             const cats = extractCompanyCategories(c).slice(0, 2);
-            const catPills = cats.map(ct => `<span onclick="filterByTag(event, '${esc(ct)}')" title="Click to filter by ${esc(ct)}" class="px-2 py-0.5 rounded text-[11px] font-semibold bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-100 truncate max-w-[140px] cursor-pointer transition">${esc(ct)}</span>`).join('');
+            const catPills = cats.map(ct => `<span onclick="filterByTag(event, '${esc(ct)}')" title="Click to filter by ${esc(ct)}" class="px-2 py-0.5 rounded text-[11px] font-semibold bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-100 truncate max-w-[130px] cursor-pointer transition">${esc(ct)}</span>`).join('');
 
             const card = document.createElement('div');
             card.className = 'card-animate bg-white rounded-xl border border-slate-200 p-3 sm:px-4 sm:py-2.5 cursor-pointer hover:shadow-md hover:border-indigo-200 transition-all flex flex-col sm:flex-row sm:flex-wrap xl:flex-nowrap sm:items-center justify-between gap-2.5 sm:gap-3 relative group';
@@ -1071,9 +1191,13 @@
                 ? '<svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>'
                 : '';
 
+            const noteInputTone = hasNote
+                ? 'bg-amber-50/90 border-amber-300 text-slate-900 font-medium'
+                : 'bg-slate-50 border-slate-200 text-slate-600';
+
             card.innerHTML = `
-                <!-- Left: Selection Circle + Full Company Name (No Truncation) + Location -->
-                <div class="flex items-start sm:items-center gap-2.5 sm:gap-3 min-w-[220px] flex-1">
+                <!-- Left: Selection Circle + Full Company Name + Location -->
+                <div class="flex items-start sm:items-center gap-2.5 sm:gap-3 min-w-[200px] sm:max-w-[280px] xl:max-w-[300px] flex-1">
                     <div onclick="toggleSelection(event, '${id}')" class="w-5 h-5 mt-0.5 sm:mt-0 rounded-full border-2 shrink-0 flex items-center justify-center cursor-pointer transition-all hover:scale-110 ${selCircleClasses}">${selCheck}</div>
                     <div class="min-w-0 flex-1">
                         <h3 class="text-sm font-bold text-slate-900 break-words leading-snug group-hover:text-indigo-600 transition-colors">${esc(name)}</h3>
@@ -1084,7 +1208,22 @@
                     </div>
                 </div>
 
-                <!-- Middle: Categories + Contact Pills -->
+                <!-- Center-Left: Editable Inline Note Input Beside Every Company -->
+                <div onclick="event.stopPropagation()" class="relative flex items-center w-full sm:w-52 md:w-60 xl:w-64 shrink-0 pl-7 sm:pl-0">
+                    <span class="absolute left-9 sm:left-2.5 text-xs pointer-events-none select-none">📝</span>
+                    <input
+                        id="note-input-${id}"
+                        type="text"
+                        value="${esc(noteVal)}"
+                        placeholder="Write a note..."
+                        oninput="saveCompanyNote('${id}', this.value, this)"
+                        onclick="event.stopPropagation()"
+                        class="w-full pl-7 pr-6 py-1.5 rounded-lg border text-xs focus:outline-none focus:ring-2 focus:ring-amber-400 focus:bg-white transition ${noteInputTone}"
+                    />
+                    <span id="note-saved-${id}" class="absolute right-2 text-[10px] font-bold text-emerald-600 opacity-0 transition-opacity pointer-events-none">✓</span>
+                </div>
+
+                <!-- Center-Right: Categories + Contact Pills -->
                 <div class="flex flex-wrap items-center gap-1.5 pl-7 sm:pl-0">
                     ${catPills ? `<div class="flex flex-wrap gap-1 mr-1">${catPills}</div>` : ''}
                     ${pillBadge('📧 Email', email, 'bg-emerald-50 text-emerald-700 border border-emerald-200', 'bg-slate-100 text-slate-400 border border-slate-200')}
@@ -1121,7 +1260,6 @@
                         const el = marker.getElement?.();
                         if (el) el.classList.add('marker-' + aiStatus.toLowerCase());
                     });
-                    // Permanent Company Name Label above map pin
                     marker.bindTooltip(esc(name), {
                         permanent: true,
                         direction: 'top',
@@ -1132,6 +1270,7 @@
                         <div style="min-width: 200px; font-family: inherit;">
                             <div style="font-weight: 700; font-size: 13px; color: #0f172a; margin-bottom: 3px;">${esc(name)}</div>
                             <div style="font-size: 11px; color: #475569; margin-bottom: 5px;">📍 ${esc(displayAddr)}</div>
+                            ${noteVal ? `<div style="font-size: 11px; background: #fef3c7; color: #92400e; padding: 4px 6px; border-radius: 4px; margin-bottom: 6px;">📝 ${esc(noteVal)}</div>` : ''}
                             <div style="font-size: 11px; text-transform: capitalize; font-weight: 600; margin-bottom: 6px;">Status: ${esc(aiStatus)}</div>
                             <button onclick="openModal('${id}')" style="display:block; width:100%; text-align:center; background:#4f46e5; color:white; border:none; border-radius:6px; padding:5px 0; font-size:11px; font-weight:600; cursor:pointer;">View Full Details</button>
                         </div>
@@ -1254,7 +1393,7 @@
         applyFiltersAndRender();
     });
 
-    ['filterCountry', 'filterCategory', 'filterStatus', 'filterEmail', 'filterPhone', 'filterWebsite', 'filterSort'].forEach(id => {
+    ['filterCountry', 'filterCategory', 'filterStatus', 'filterNote', 'filterEmail', 'filterPhone', 'filterWebsite', 'filterSort'].forEach(id => {
         document.getElementById(id)?.addEventListener('change', () => {
             currentPage = 1;
             applyFiltersAndRender();
@@ -1268,6 +1407,7 @@
         if (document.getElementById('filterCity')) document.getElementById('filterCity').value = '';
         if (document.getElementById('filterCategory')) document.getElementById('filterCategory').value = 'all';
         if (document.getElementById('filterStatus')) document.getElementById('filterStatus').value = 'all';
+        if (document.getElementById('filterNote')) document.getElementById('filterNote').value = '';
         if (document.getElementById('filterEmail')) document.getElementById('filterEmail').value = '';
         if (document.getElementById('filterPhone')) document.getElementById('filterPhone').value = '';
         if (document.getElementById('filterWebsite')) document.getElementById('filterWebsite').value = '';
